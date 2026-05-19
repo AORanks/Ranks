@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AO Ranks - Albion Online Archive</title>
+    <title>AO Ranks - Simple</title>
     <link rel="stylesheet" href="style.css">
     
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -11,60 +11,37 @@
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 </head>
 <body>
-    <div class="terminal-container">
-        <header class="terminal-header">
-            <h1>AO RANKS // DATABASE</h1>
-            <div class="top-meta-cards">
-                <span>TOP 1: <strong id="top-name">---</strong></span>
-                <span>REGISTROS: <strong id="total-rows">0</strong></span>
-            </div>
-        </header>
 
+    <div class="container">
         <div class="filter-bar">
-            <div class="filter-group">
-                <label for="select-server">SERVIDOR:</label>
-                <select id="select-server">
-                    <option value="americas">AMERICAS</option>
-                    <option value="europe">EUROPE</option>
-                    <option value="asia">ASIA</option>
-                </select>
-            </div>
+            <select id="srv">
+                <option value="americas">AMERICAS</option>
+                <option value="europe">EUROPE</option>
+                <option value="asia">ASIA</option>
+            </select>
 
-            <div class="filter-group">
-                <label for="select-type">CATEGORIA:</label>
-                <select id="select-type">
-                    <option value="guilds">GUILDS</option>
-                    <option value="players">PLAYERS</option>
-                </select>
-            </div>
+            <select id="cat">
+                <option value="guilds">GUILDS</option>
+                <option value="players">PLAYERS</option>
+            </select>
 
-            <div class="filter-group">
-                <label for="select-mode">TIPO:</label>
-                <select id="select-mode">
-                    <option value="battles">BATTLES</option>
-                    <option value="battlestotal">TOTAL</option>
-                </select>
-            </div>
+            <select id="tipo">
+                <option value="battles">BATTLES</option>
+                <option value="battlestotal">TOTAL</option>
+            </select>
             
-            <div class="filter-group">
-                <label for="select-month">MÊS:</label>
-                <select id="select-month">
-                    <option value="january">JANEIRO (1)</option>
-                    <option value="february">FEVEREIRO (2)</option>
-                    <option value="march">MARÇO (3)</option>
-                    <option value="april">ABRIL (4)</option>
-                </select>
-            </div>
+            <select id="mes">
+                <option value="1">JANEIRO (1)</option>
+                <option value="2">FEVEREIRO (2)</option>
+                <option value="3">MARÇO (3)</option>
+                <option value="4">ABRIL (4)</option>
+            </select>
         </div>
 
-        <div class="table-responsive">
-            <table id="rankTable" class="terminal-table display nowrap" style="width:100%">
-                <thead id="table-head">
-                    </thead>
-                <tbody id="tableData">
-                    </tbody>
-            </table>
-        </div>
+        <table id="rankTable" class="display" style="width:100%">
+            <thead id="thead"></thead>
+            <tbody id="tbody"></tbody>
+        </table>
     </div>
 
     <script src="script.js"></script>
