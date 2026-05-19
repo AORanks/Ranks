@@ -12,13 +12,24 @@ async function loadData() {
     else if (monthValue.includes("mar")) monthNumber = "3";
     else if (monthValue.includes("apr")) monthNumber = "4";
 
-    // Montagem exata baseada na sua árvore de pastas real
     const folderName = `${server}${mainCategory}${subCategory}`;
     const fileName = `${mainCategory} (${monthNumber}).json`;
     const finalPath = `./${folderName}/${fileName}`;
 
-    console.log(`Tentando carregar: ${finalPath}`);
+    console.log(`[AO Ranks] Carregando: ${finalPath}`);
     $('#total-rows').text('Carregando...');
+
+    // 1. DESTRUIÇÃO TOTAL E AGRESSIVA DO DATATABLES ANTES DE QUALQUER FETCH
+    if (dt) {
+        dt.clear().destroy();
+        dt = null;
+    }
+    
+    // Força a remoção completa de qualquer resíduo de colunas e dados velhos
+    $('#rankTable').empty(); 
+    
+    // Recria a estrutura mínima limpa para o DataTables não se perder
+    $('#rankTable').html('<thead id="table-head"></thead><tbody id="tableData"></tbody>');
 
     try {
         const response = await fetch(finalPath);
@@ -40,17 +51,12 @@ async function loadData() {
         $('#total-rows').text('Erro');
         $('#top-name').text('---');
         
-        if (dt) {
-            dt.destroy();
-            dt = null;
-        }
-        
-        $('#table-head').html(`<tr><th>ERRO DE AMBIENTE / ARQUIVO NÃO ENCONTRADO</th></tr>`);
+        $('#table-head').html(`<tr><th>ERRO DE AMBIENTE / ARQUIVO NÃO LOCALIZADO</th></tr>`);
         $('#tableData').html(`
             <tr>
                 <td style="color:#f59e0b; padding:25px; font-family:monospace; white-space:normal; line-height:1.6;">
-                    <strong>Caminho Solicitado:</strong> ${finalPath}<br><br>
-                    <strong>Dica de Desenvolvedor:</strong> Se aparecer 'Failed to fetch', você não pode abrir o HTML clicando duas vezes direto da pasta. Use a extensão <strong>Live Server</strong> do VS Code ou suba o código no GitHub Pages para o navegador permitir a leitura dos arquivos JSON locais!
+                    <strong>Caminho:</strong> ${finalPath}<br><br>
+                    <strong>Aviso:</strong> Se o erro for 'Failed to fetch', lembre-se de rodar o projeto através do <strong>Live Server</strong> no VS Code. O navegador bloqueia requisições locais se abrir o HTML direto com dois cliques.
                 </td>
             </tr>
         `);
@@ -58,27 +64,18 @@ async function loadData() {
 }
 
 function renderTable(data) {
-    // Destrói tabela antiga se ela existir para evitar conflitos de memória
-    if (dt) {
-        dt.destroy();
-        $('#table-head').empty();
-        $('#tableData').empty();
-        dt = null;
-    }
-    
-    // DETECÇÃO AUTOMÁTICA DE COLUNAS: Lê o primeiro registro do JSON para ver o tamanho real
     const sampleRow = data[0];
     const totalColumns = sampleRow.length;
 
+    // 2. DETECTA QUANTAS COLUNAS VIERAM E MONTA O CABEÇALHO EXATO
     let headersHtml = '<tr><th>RANK</th>';
-    
     if (mainCategory === 'guilds') {
-        if (totalColumns === 6) { // Se tiver 6 colunas de dados
+        if (totalColumns === 6) { 
             headersHtml += `<th>TIME</th><th>BATTLE ID</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>`;
-        } else { // Caso seja TOTAL (4 colunas de dados)
+        } else { 
             headersHtml += `<th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>`;
         }
-    } else { // Caso seja PLAYERS
+    } else { 
         if (totalColumns === 7) {
             headersHtml += `<th>TIME</th><th>BATTLE ID</th><th>JOGADOR</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>`;
         } else {
@@ -88,60 +85,74 @@ function renderTable(data) {
     headersHtml += '</tr>';
     $('#table-head').html(headersHtml);
 
-    // Monta o corpo da tabela
+    // 3. PROCESSAMENTO EM BUFFER DE STRING (Roda em milissegundos sem congelar a CPU)
     let rowsHtml = '';
-    data.forEach((row, rowIndex) => {
-        let cells = `<td class="font-bold text-center" style="color: #f59e0b;">#${rowIndex + 1}</td>`;
+    const totalRows = data.length;
+    
+    for (let i = 0; i < totalRows; i++) {
+        let cells = `<td class="font-bold text-center" style="color: #f59e0b;">#${i + 1}</td>`;
+        const row = data[i];
+        const rowLen = row.length;
         
-        row.forEach(val => {
+        for (let j = 0; j < rowLen; j++) {
+            let val = row[j];
             let cleanVal = (val !== null && val !== undefined) ? val : '-';
-            // Formata números grandes com pontuação padrão (ex: 1.500.000)
+            
             if (typeof val === 'number' && !isNaN(val) && val > 999) {
                 cleanVal = val.toLocaleString('pt-BR');
             }
             cells += `<td>${cleanVal}</td>`;
-        });
-        
+        }
         rowsHtml += `<tr>${cells}</tr>`;
-    });
+    }
     $('#tableData').html(rowsHtml);
 
-    // Descobre automaticamente o índice da última coluna para ordenar por Abates/Kills por padrão
-    // Em estruturas limpas do Albion, a coluna de abates costuma ser a antepenúltima (TotalColumns - 2)
-    let sortColumnIndex = 2; 
+    // 4. CALCULA O ÍNDICE CORRETO DE ORDENAÇÃO DE ACORDO COM O MODELO DO JSON
+    let sortColumnIndex = 1; 
     if (mainCategory === 'guilds' && totalColumns === 6) sortColumnIndex = 4;
     if (mainCategory === 'players' && totalColumns === 7) sortColumnIndex = 5;
     if (mainCategory === 'players' && totalColumns === 5) sortColumnIndex = 3;
 
-    // Inicializa o DataTables de forma segura
-    dt = $('#rankTable').DataTable({
-        responsive: true,
-        order: [[sortColumnIndex, "desc"]],
-        pageLength: 50,
-        language: { 
-            search: "PROCURAR:",
-            lengthMenu: "MOSTRAR _MENU_",
-            info: "Mostrando _TOTAL_ registros",
-            paginate: { first: "«", last: "»", next: "›", previous: "‹" }
+    // 5. INICIALIZAÇÃO BLINDADA COM TIME-OUT PARA EVITAR CORRIDA DE MEMÓRIA
+    setTimeout(() => {
+        // Garante que o plugin não tente duplicar a inicialização sob nenhuma circunstância
+        if ($.fn.DataTable.isDataTable('#rankTable')) {
+            $('#rankTable').DataTable().destroy();
         }
-    });
 
-    // Atualiza o topo do painel
+        dt = $('#rankTable').DataTable({
+            responsive: true,
+            order: [[sortColumnIndex, "desc"]],
+            pageLength: 50,
+            deferRender: true, // Renderiza as linhas sob demanda apenas ao mudar de página
+            destroy: true,     // Permite re-inicialização forçada com novas colunas
+            language: { 
+                search: "PROCURAR:",
+                lengthMenu: "MOSTRAR _MENU_",
+                info: "Mostrando _TOTAL_ registros",
+                paginate: { first: "«", last: "»", next: "›", previous: "‹" }
+            }
+        });
+    }, 20);
+
+    // Atualiza os painéis superiores de metadados
     if (sampleRow) {
         let nameIndex = (totalColumns > 5) ? 2 : 0;
         $('#top-name').text(sampleRow[nameIndex] || sampleRow[0]);
     }
-    $('#total-rows').text(data.length.toLocaleString('pt-BR'));
+    $('#total-rows').text(totalRows.toLocaleString('pt-BR'));
 }
 
 $(document).ready(() => {
-    // Escuta alterações nos filtros suspensos
+    // Escuta seletores normais
     $('#select-server, #select-month').on('change', () => {
         loadData();
     });
 
-    // Gerencia cliques na barra de abas unificada
+    // Escuta cliques nas abas planas de um nível só
     $('.tab-btn').on('click', function() {
+        if ($(this).hasClass('active')) return; // Evita cliques duplicados na mesma aba ativa
+        
         $('.tab-btn').removeClass('active');
         $(this).addClass('active');
 
@@ -151,6 +162,6 @@ $(document).ready(() => {
         loadData();
     });
 
-    // Carga inicial do sistema
+    // Dispara a primeira execução ao abrir o site
     loadData();
 });
