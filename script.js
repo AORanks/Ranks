@@ -6,7 +6,6 @@ async function loadData() {
     const serverElement = $('#select-server');
     const monthElement = $('#select-month');
 
-    // Impede qualquer erro de inicialização prematura do DOM
     if (!serverElement.length || !monthElement.length) return;
 
     const server = serverElement.val().toLowerCase().trim();
@@ -18,17 +17,16 @@ async function loadData() {
     else if (monthValue.includes("mar")) monthNumber = "3";
     else if (monthValue.includes("apr")) monthNumber = "4";
 
-    // Caminho relativo ideal para o ambiente do GitHub Pages
     const folderName = `${server}${mainCategory}${subCategory}`;
     const fileName = `${mainCategory} (${monthNumber}).json`;
     const finalPath = `./${folderName}/${fileName}`;
 
-    console.log(`[AO Ranks] Requisição para: ${finalPath}`);
+    console.log(`[AO Ranks] Efetuando requisição em: ${finalPath}`);
     $('#total-rows').text('...');
 
     try {
         const response = await fetch(finalPath);
-        if (!response.ok) throw new Error(`Não pôde obter resposta HTTP estável.`);
+        if (!response.ok) throw new Error(`HTTP Erro: Status ${response.status}`);
         
         const json = await response.json();
         renderTable(json.d);
@@ -36,87 +34,99 @@ async function loadData() {
         console.error(err);
         $('#total-rows').text('Erro');
         
-        // Exibição visual limpa caso falte alguma pasta no repositório
         $('#table-wrapper').html(`
-            <div style="color: #f59e0b; font-family: monospace; padding: 20px; border: 1px dashed #334155;">
-                <strong>[STATUS 404]:</strong> Banco de dados offline ou arquivo não localizado.<br>
-                <strong>Caminho verificado:</strong> ${finalPath}
+            <div style="color: #f59e0b; font-family: monospace; padding: 20px; border: 1px dashed #334155; line-height: 1.5;">
+                <strong>[STATUS 404]:</strong> O arquivo de dados não foi localizado.<br>
+                <strong>Caminho Solicitado:</strong> ${finalPath}
             </div>
         `);
     }
 }
 
 function renderTable(data) {
-    // Destruição total da instância do DataTables da memória para liberar performance
+    // 1. Destrói completamente a instância e limpa o HTML do wrapper
     if (dt) {
         dt.destroy();
         dt = null;
     }
 
-    // Recria a estrutura pura da tabela no HTML eliminando caches antigos
+    // 2. Recria apenas a casca vazia da tabela (Sem carregar nenhuma linha no HTML ainda!)
     $('#table-wrapper').html(`
         <table id="rankTable" class="display nowrap" style="width:100%">
             <thead id="table-head"></thead>
-            <tbody id="tableData"></tbody>
         </table>
     `);
 
     if (!data || data.length === 0) return;
 
-    // Cabeçalhos flexíveis baseados na contagem do array de dados
     const totalColumns = data[0].length;
     let headers = '<tr><th>RANK</th>';
     
+    // 3. Define a estrutura de colunas para o DataTables mapear internamente
+    let columnDefs = [
+        {
+            targets: 0,
+            render: function (data, type, row, meta) {
+                return `<span style="color: #f59e0b; font-weight: bold;">#${meta.row + 1}</span>`;
+            },
+            className: "dt-center"
+        }
+    ];
+
     if (mainCategory === 'guilds') {
-        headers += (totalColumns === 6)
-            ? '<th>TIME</th><th>BATTLE ID</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>'
-            : '<th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>';
+        if (totalColumns === 6) {
+            headers += '<th>TIME</th><th>BATTLE ID</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>';
+        } else {
+            headers += '<th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>';
+        }
     } else {
-        headers += (totalColumns === 7)
-            ? '<th>TIME</th><th>BATTLE ID</th><th>JOGADOR</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>'
-            : '<th>JOGADOR</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>';
+        if (totalColumns === 7) {
+            headers += '<th>TIME</th><th>BATTLE ID</th><th>JOGADOR</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>';
+        } else {
+            headers += '<th>JOGADOR</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>';
+        }
     }
     headers += '</tr>';
     $('#table-head').html(headers);
 
-    // Constrói linhas usando concatenação limpa de strings
-    let rowsHtml = '';
-    for (let i = 0; i < data.length; i++) {
-        let cells = `<td style="color: #f59e0b; font-weight: bold; text-align: center;">#${i + 1}</td>`;
-        for (let j = 0; j < data[i].length; j++) {
-            let val = data[i][j];
-            let cleanVal = (val !== null && val !== undefined) ? val : '-';
-            
-            if (typeof val === 'number' && val > 999) {
-                cleanVal = val.toLocaleString('pt-BR');
+    // 4. Cria a configuração de renderização de números grandes para todas as colunas de dados
+    for (let i = 0; i < totalColumns; i++) {
+        columnDefs.push({
+            targets: i + 1,
+            render: function (val) {
+                if (val === null || val === undefined) return '-';
+                if (typeof val === 'number' && val > 999) {
+                    return val.toLocaleString('pt-BR');
+                }
+                return val;
             }
-            cells += `<td>${cleanVal}</td>`;
-        }
-        rowsHtml += `<tr>${cells}</tr>`;
+        });
     }
-    $('#tableData').html(rowsHtml);
 
-    // Define índice padrão para ordenação (Coluna de Kills)
+    // 5. Define qual coluna indexada vai ordenar por padrão (Coluna de Abates/Kills)
     let sortIndex = 1;
     if (mainCategory === 'guilds' && totalColumns === 6) sortIndex = 4;
     if (mainCategory === 'players' && totalColumns === 7) sortIndex = 5;
     if (mainCategory === 'players' && totalColumns === 5) sortIndex = 3;
 
-    // Ativação precisa do Scroller (Carrega blocos conforme rola)
+    // 6. Inicializa passando o Array de dados brutas diretamente na propriedade 'data'
+    // Desse jeito o processamento roda 100% em memória ultra rápido, renderizando só as ~15 linhas visíveis
     dt = $('#rankTable').DataTable({
+        data: data,             // Passagem direta do array bruto do JSON
+        columnDefs: columnDefs, // Aplica as regras de formatação e o Rank automático (#1, #2...)
         responsive: true,
         order: [[sortIndex, "desc"]],
         deferRender: true,
-        scrollY: 450, // Altura vertical física da tabela
+        scrollY: 450,
         scrollCollapse: true,
         scroller: {
             loadingIndicator: true,
-            displayBuffer: 4 // Mantém fatias de dados balanceadas de cerca de 100 registros na visão do DOM
+            displayBuffer: 3 // Otimiza o tamanho do bloco para renderizar de 100 em 100 com perfeição
         },
-        dom: 'frti', // Oculta barra clássica de paginação sequencial (1, 2, 3...)
+        dom: 'frti',
         language: {
-            search: "BUSCAR:",
-            info: "Registros: _START_ até _END_ de _TOTAL_",
+            search: "PROCURAR IN-LINE:",
+            info: "Exibindo de _START_ a _END_ (Total: _TOTAL_ registros)",
             infoFiltered: ""
         }
     });
