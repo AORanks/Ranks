@@ -1,9 +1,9 @@
 let dt = null;
+let mainCategory = 'guilds'; // 'guilds' ou 'players'
+let subCategory = 'battles';  // 'battles' ou 'battlestotal'
 
 async function loadData() {
     const server = $('#select-server').val().toLowerCase().trim(); 
-    const mainCategory = $('#select-type').val().toLowerCase().trim(); // 'guilds' ou 'players'
-    const subCategory = $('#select-mode').val().toLowerCase().trim(); // 'battles' ou 'battlestotal'
     const monthValue = $('#select-month').val().toLowerCase().trim(); 
     
     // Mapeamento numérico dos arquivos (1, 2, 3, 4)
@@ -13,7 +13,7 @@ async function loadData() {
     else if (monthValue.includes("mar")) monthNumber = "3";
     else if (monthValue.includes("apr")) monthNumber = "4";
 
-    // Constrói a rota exata da pasta local (ex: ./americasguildsbattles)
+    // Constrói o caminho das pastas locais baseado nas combinações (ex: ./americasguildsbattles)
     const folderName = `${server}${mainCategory}${subCategory}`;
     const fileName = `${mainCategory} (${monthNumber}).json`;
     const finalPath = `./${folderName}/${fileName}`;
@@ -33,7 +33,7 @@ async function loadData() {
             throw new Error("Propriedade de dados ('d') vazia ou inválida.");
         }
 
-        render(json.d, mainCategory, subCategory);
+        render(json.d);
         
     } catch (err) {
         console.error(err);
@@ -44,13 +44,13 @@ async function loadData() {
     }
 }
 
-function render(data, mainCategory, subCategory) {
+function render(data) {
     if (dt) {
         dt.destroy();
         $('#tableData').empty();
     }
     
-    // Configuração dos Cabeçalhos Dinâmicos
+    // Configuração dos Cabeçalhos Dinâmicos baseados nas abas ativas
     let headersHtml = '<tr><th>RANK</th>';
     if (mainCategory === 'guilds') {
         if (subCategory === 'battles') {
@@ -68,7 +68,7 @@ function render(data, mainCategory, subCategory) {
     headersHtml += '</tr>';
     $('#table-head').html(headersHtml);
 
-    // Injeção das Linhas
+    // Injeção de Linhas na Tabela
     let rows = '';
     data.forEach((row, i) => {
         let cells = `<td class="font-bold text-center">#${i+1}</td>`;
@@ -117,12 +117,37 @@ function render(data, mainCategory, subCategory) {
     $('#total-rows').text(data.length.toLocaleString());
 }
 
-// Inicialização e gatilhos de mudança via jQuery
+// Controle de cliques e alterações de estado via jQuery
 $(document).ready(() => {
-    // Qualquer alteração nos seletores recarrega os dados imediatamente
-    $('#select-server, #select-type, #select-mode, #select-month').on('change', () => {
+    // Escuta seletores superiores de Servidor e Mês
+    $('#select-server, #select-month').on('change', () => {
         loadData();
     });
 
+    // Cliques nas Abas do Nível 1 (GUILDS / PLAYERS)
+    $('.main-tab-btn').on('click', function() {
+        $('.main-tab-btn').removeClass('active');
+        $(this).addClass('active');
+
+        mainCategory = $(this).attr('data-main');
+        
+        // Atualiza dinamicamente o texto das sub-abas de nível 2
+        const label = mainCategory.toUpperCase();
+        $('#btn-sub-battles').text(`${label} BATTLES`);
+        $('#btn-sub-total').text(`${label} TOTAL`);
+
+        loadData();
+    });
+
+    // Cliques nas Abas do Nível 2 (BATTLES / TOTAL)
+    $('.sub-tab-btn').on('click', function() {
+        $('.sub-tab-btn').removeClass('active');
+        $(this).addClass('active');
+
+        subCategory = $(this).attr('data-sub');
+        loadData();
+    });
+
+    // Chamada inicial para preencher a tabela assim que o app abrir
     loadData();
 });
