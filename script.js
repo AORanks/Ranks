@@ -12,7 +12,7 @@ async function loadData() {
     const serverElement = $('#select-server');
     const monthElement = $('#select-month');
 
-    // Proteção essencial: Se os seletores não existirem no DOM, interrompe para não dar erro de undefined
+    // Proteção contra erro de inicialização prematura (Tela Preta)
     if (!serverElement.length || !monthElement.length) return;
 
     const server = (serverElement.val() || 'americas').toLowerCase().trim();
@@ -31,7 +31,7 @@ async function loadData() {
     console.log(`[AO Ranks] Buscando arquivo: ${finalPath}`);
     $('#total-rows').text('...');
     
-    // Reseta o estado geral
+    // Reseta estados
     allData = [];
     displayedCount = 0;
     currentSortColumn = null;
@@ -62,28 +62,28 @@ async function loadData() {
         allData = json.d;
         $('#total-rows').text(allData.length.toLocaleString('pt-BR'));
 
-        // 1. Gera a estrutura de cabeçalho
+        // 1. Renderiza os cabeçalhos dinamicamente
         const totalColumns = allData[0].length;
         renderHeaders(totalColumns);
 
-        // 2. Define coluna padrão inicial de ordenação (Coluna de ABATES)
+        // 2. Define coluna padrão para ordenação inicial (Coluna de ABATES)
         let initialSortIndex = 0; 
         if (mainCategory === 'guilds' && totalColumns === 6) initialSortIndex = 3; // ABATES
         if (mainCategory === 'guilds' && totalColumns === 4) initialSortIndex = 1; // ABATES (Sem ID/Time)
         if (mainCategory === 'players' && totalColumns === 7) initialSortIndex = 4; // ABATES Player
         if (mainCategory === 'players' && totalColumns === 5) initialSortIndex = 2; // ABATES Player (Sem ID/Time)
 
-        // Aplica ordenação decrescente inicial
+        // Aplica a primeira ordenação decrescente (Maior número de abates primeiro)
         currentSortColumn = initialSortIndex;
         sortDataByColumn(initialSortIndex, false);
 
-        // Adiciona a classe visual da setinha na coluna padrão
+        // Atualiza a seta visual na coluna ativa
         $(`th[data-col="${initialSortIndex}"]`).addClass('sort-desc');
 
-        // Injeta os primeiros 100 registros
+        // Carrega as primeiras 100 linhas na tela
         renderTargetRows();
 
-        // Ativa os listeners de rolagem e clique
+        // Ativa o listener de detecção do scroll
         setupScrollEvent();
 
     } catch (err) {
@@ -99,6 +99,7 @@ async function loadData() {
 }
 
 function renderHeaders(totalColumns) {
+    // Vincula o índice do array de dados bruto dentro do atributo data-col de cada <th>
     let headers = '<tr><th class="clickable-header" data-col="rank" style="width: 80px; text-align: center;">RANK</th>';
     
     if (mainCategory === 'guilds') {
@@ -135,7 +136,7 @@ function renderHeaders(totalColumns) {
     headers += '</tr>';
     $('#table-head').html(headers);
     
-    // Liga o evento de clique diretamente após renderizar os cabeçalhos
+    // Liga o listener de clique nos elementos recém-criados
     setupHeaderClickEvents();
 }
 
@@ -144,7 +145,7 @@ function renderTargetRows() {
     let rowsHtml = '';
 
     for (let i = 0; i < nextChunk.length; i++) {
-        // Se a tabela estiver invertida (Ascendente), calcula o Rank de trás para frente
+        // Se a listagem estiver em ordem ascendente, o rank computado acompanha o inverso da matriz
         const globalRank = isAscending && currentSortColumn !== 'rank'
             ? allData.length - (displayedCount + i)
             : displayedCount + i + 1;
@@ -155,6 +156,7 @@ function renderTargetRows() {
             let val = nextChunk[i][j];
             let cleanVal = (val !== null && val !== undefined) ? val : '-';
             
+            // Aplica pontuação de milhar visual sem quebrar o tipo numérico real na memória
             if (typeof val === 'number' && val > 999) {
                 cleanVal = val.toLocaleString('pt-BR');
             }
@@ -169,8 +171,8 @@ function renderTargetRows() {
 
 function sortDataByColumn(colIndex, asc) {
     if (colIndex === 'rank') {
-        // Ordenação padrão pelo índice natural do arquivo original
-        if (asc) allData.reverse(); 
+        // Se clicou no Rank, apenas inverte a matriz para o estado original
+        allData.reverse();
         return;
     }
 
@@ -181,10 +183,12 @@ function sortDataByColumn(colIndex, asc) {
         if (valA === null || valA === undefined) valA = asc ? Infinity : -Infinity;
         if (valB === null || valB === undefined) valB = asc ? Infinity : -Infinity;
 
+        // Se for texto (Nomes de Guildas/Players), usa comparação alfabética local
         if (typeof valA === 'string' && typeof valB === 'string') {
             return asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
         }
 
+        // Se for número (Abates, Mortes, Fama), usa subtração direta de alta performance
         return asc ? valA - valB : valB - valA;
     });
 }
@@ -195,25 +199,29 @@ function setupHeaderClickEvents() {
         const isRank = colAttr === 'rank';
         const colIndex = isRank ? 'rank' : parseInt(colAttr);
 
+        // Se clicou na mesma coluna que já estava ativa, inverte a ordem (Asc <-> Desc)
         if (currentSortColumn === colIndex) {
             isAscending = !isAscending;
         } else {
             currentSortColumn = colIndex;
-            // Abates, Mortes e Fama começam como decrescentes (maior valor primeiro)
+            // Colunas de PvP competitivo começam do maior para o menor (Descendente) no 1º clique
             const text = $(this).text();
             isAscending = (text === 'ABATES' || text === 'FAMA' || text === 'MORTES') ? false : true;
         }
 
+        // Altera as setinhas CSS no cabeçalho
         $('.clickable-header').removeClass('sort-asc sort-desc');
         $(this).addClass(isAscending ? 'sort-asc' : 'sort-desc');
 
-        // Executa a ordenação e limpa a visualização para re-renderizar
+        // Ordena a matriz cheia na memória
         sortDataByColumn(colIndex, isAscending);
         
+        // Limpa o visor HTML e joga a barra do scroll de volta para o topo
         displayedCount = 0;
         $('#table-body').empty();
         $('#scroll-box').scrollTop(0); 
 
+        // Cospe as primeiras 100 linhas atualizadas
         renderTargetRows();
     });
 }
