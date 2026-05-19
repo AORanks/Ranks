@@ -1,189 +1,163 @@
+let dt = null;
 let mainCategory = 'guilds'; // 'guilds' ou 'players'
 let subCategory = 'battles';  // 'battles' ou 'battlestotal'
-let allDataRows = []; 
-let currentIndex = 0;
-const rowsPerPage = 100; 
 
-// Estado de Ordenação
-let currentSortColumn = null;
-let isAscending = true;
-
-document.addEventListener("DOMContentLoaded", () => {
-    if (!document.getElementById('load-more-btn')) {
-        const btn = document.createElement('button');
-        btn.id = 'load-more-btn';
-        btn.innerText = 'CARREGAR MAIS REGISTROS';
-        btn.className = 'load-more-style'; // Definido no CSS
-        btn.onclick = () => renderNextRows();
-        document.querySelector('.table-responsive').after(btn);
-    }
-    updateSubTabsUI();
-    applyFilters();
-});
-
-// Nível 1: Alternar entre Guilds e Players
-function switchMainCategory(event, category) {
-    const buttons = document.querySelectorAll('.main-tab-btn');
-    buttons.forEach(btn => btn.classList.remove('active'));
-    event.currentTarget.classList.add('active');
+async function loadData() {
+    const server = $('#select-server').val().toLowerCase().trim(); // ex: 'americas'
+    const monthValue = $('#select-month').val().toLowerCase().trim(); // ex: 'january'
     
-    mainCategory = category;
-    updateSubTabsUI();
-    resetSortAndApply();
-}
-
-// Nível 2: Alternar entre Battles e Total
-function switchSubCategory(event, sub) {
-    const buttons = document.querySelectorAll('.sub-tab-btn');
-    buttons.forEach(btn => btn.classList.remove('active'));
-    event.currentTarget.classList.add('active');
-    
-    subCategory = sub;
-    resetSortAndApply();
-}
-
-// Atualiza o texto dos botões de sub-aba para ficar mais claro
-function updateSubTabsUI() {
-    const label = mainCategory.toUpperCase();
-    document.getElementById('btn-battles').innerText = `${label} BATTLES`;
-    document.getElementById('btn-total').innerText = `${label} TOTAL`;
-}
-
-function resetSortAndApply() {
-    currentSortColumn = null;
-    isAscending = true;
-    applyFilters();
-}
-
-function applyFilters() {
-    const server = document.getElementById('select-server').value.toLowerCase().trim(); 
-    const monthValue = document.getElementById('select-month').value.toLowerCase().trim();
-    
+    // Mapeamento numérico dos arquivos (1, 2, 3, 4) baseado no mês selecionado
     let monthNumber = "1";
     if (monthValue.includes("jan")) monthNumber = "1";
     else if (monthValue.includes("feb")) monthNumber = "2";
     else if (monthValue.includes("mar")) monthNumber = "3";
     else if (monthValue.includes("apr")) monthNumber = "4";
 
-    // CONSTRUÇÃO DO CAMINHO: ex americas + guilds + battles
-    const folderName = `${server}${mainCategory}${subCategory}`; 
-    const fileName = `${mainCategory} (${monthNumber}).json`; 
-
+    // Constrói o caminho das pastas locais baseado nas combinações (ex: americasguildsbattlestotal)
+    const folderName = `${server}${mainCategory}${subCategory}`;
+    const fileName = `${mainCategory} (${monthNumber}).json`;
     const finalPath = `./${folderName}/${fileName}`;
-    console.log(`Path: ${finalPath}`);
 
-    // Definição de Colunas conforme sua solicitação
-    let columnsVisual = [];
+    $('#total-rows').text('Carregando...');
+
+    try {
+        const response = await fetch(finalPath);
+        
+        if (!response.ok) {
+            throw new Error(`Arquivo não localizado no caminho: ${finalPath}`);
+        }
+        
+        const json = await response.json();
+        
+        // Valida se o banco de dados compacto possui a propriedade 'd' preenchida
+        if (!json.d || json.d.length === 0) {
+            throw new Error("O arquivo JSON existe, mas os dados ('d') estão vazios.");
+        }
+
+        render(json.d);
+        
+    } catch (err) {
+        console.error(err);
+        $('#total-rows').text('Erro');
+        $('#top-name').text('---');
+        $('#table-head').html(`<tr><th>Status: Banco Offline</th></tr>`);
+        $('#tableData').html(`<tr><td style="color:#ff6b6b; padding:20px;">${err.message}</td></tr>`);
+    }
+}
+
+function render(data) {
+    // Destrói a instância anterior para evitar vazamento de memória e travamento de chaves
+    if (dt) {
+        dt.destroy();
+        $('#tableData').empty();
+    }
+    
+    // Gerencia dinamicamente os CabeçalhosOficiais solicitados no HTML
+    let headersHtml = '<tr><th>RANK</th>';
     if (mainCategory === 'guilds') {
         if (subCategory === 'battles') {
-            columnsVisual = ['Time', 'Battle ID', 'Guild', 'Kills', 'Deaths', 'Fame'];
+            headersHtml += `<th>TIME</th><th>BATTLE ID</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>`;
         } else {
-            columnsVisual = ['Guild', 'Kills', 'Deaths', 'Fame'];
+            headersHtml += `<th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>`;
         }
-    } else { // Players
+    } else { // 'players'
         if (subCategory === 'battles') {
-            columnsVisual = ['Time', 'Battle ID', 'Player', 'Guild', 'Kills', 'Deaths', 'Fame'];
+            headersHtml += `<th>TIME</th><th>BATTLE ID</th><th>JOGADOR</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>`;
         } else {
-            columnsVisual = ['Player', 'Guild', 'Kills', 'Deaths', 'Fame'];
+            headersHtml += `<th>JOGADOR</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>`;
         }
     }
+    headersHtml += '</tr>';
+    $('#table-head').html(headersHtml);
 
-    fetchData(finalPath, columnsVisual);
-}
-
-// --- Restante das funções (Fetch, Sort, Render) permanecem com a mesma lógica robusta ---
-
-function fetchData(fullPath, columnsVisual) {
-    const headerRow = document.getElementById('table-header');
-    const tableBody = document.getElementById('table-body');
-    const loadMoreBtn = document.getElementById('load-more-btn');
-
-    headerRow.innerHTML = '<th>ACESSANDO BANCO DE DADOS...</th>';
-    tableBody.innerHTML = '';
-    if (loadMoreBtn) loadMoreBtn.style.display = 'none';
-
-    fetch(fullPath)
-        .then(response => {
-            if (!response.ok) throw new Error("404");
-            return response.json();
-        })
-        .then(jsonData => {
-            if (!jsonData || !jsonData.c) return;
-
-            const jsonColumnsNormalized = jsonData.c.map(col => 
-                col.toLowerCase().replace(/[\s/_]/g, '')
-            );
-
-            allDataRows = jsonData.d;
-            window.currentJsonColumns = jsonColumnsNormalized;
-            window.currentColumnsVisual = columnsVisual;
-            currentIndex = 0;
-
-            if (currentSortColumn) {
-                sortData(currentSortColumn, false);
-            } else {
-                renderHeaders();
-                renderNextRows(true);
+    // Montagem eficiente de strings no loop
+    let rows = '';
+    data.forEach((row, i) => {
+        let cells = `<td class="font-bold text-center">#${i+1}</td>`;
+        
+        // Mapeia as células do array baseado estritamente na categoria ativa
+        row.forEach(value => {
+            let displayValue = (value !== null && value !== undefined) ? value : '-';
+            
+            // Aplica formatação de milhar para números grandes (Kills, Deaths, Fame)
+            if (typeof value === 'number' && !isNaN(value) && value > 100) {
+                displayValue = value.toLocaleString();
             }
-        })
-        .catch(() => {
-            headerRow.innerHTML = '<th>ARQUIVO NÃO LOCALIZADO</th>';
+            cells += `<td>${displayValue}</td>`;
         });
-}
 
-function renderHeaders() {
-    const headerRow = document.getElementById('table-header');
-    const columnsVisual = window.currentColumnsVisual;
-    headerRow.innerHTML = '';
-    columnsVisual.forEach(col => {
-        const th = document.createElement('th');
-        th.style.cursor = 'pointer';
-        let arrow = col === currentSortColumn ? (isAscending ? ' ▲' : ' ▼') : '';
-        th.innerText = col.toUpperCase() + arrow;
-        th.onclick = () => sortData(col, true);
-        headerRow.appendChild(th);
-    });
-}
-
-function sortData(columnName, toggleDirection) {
-    const jsonCols = window.currentJsonColumns;
-    const colNorm = columnName.toLowerCase().replace(/[\s/_]/g, '');
-    const idx = jsonCols.indexOf(colNorm);
-    if (idx === -1) return;
-
-    if (toggleDirection) {
-        if (currentSortColumn === columnName) isAscending = !isAscending;
-        else { currentSortColumn = columnName; isAscending = true; }
-    }
-
-    allDataRows.sort((a, b) => {
-        let vA = a[idx], vB = b[idx];
-        const nA = Number(vA), nB = Number(vB);
-        if (!isNaN(nA) && !isNaN(nB)) return isAscending ? nA - nB : nB - nA;
-        return isAscending ? String(vA).localeCompare(String(vB)) : String(vB).localeCompare(String(vA));
+        rows += `<tr class="hover:bg-slate-800/50 transition">${cells}</tr>`;
     });
 
-    currentIndex = 0;
-    renderHeaders();
-    renderNextRows(true);
-}
-
-function renderNextRows(clear = false) {
-    const tableBody = document.getElementById('table-body');
-    const loadMoreBtn = document.getElementById('load-more-btn');
-    if (clear) tableBody.innerHTML = '';
+    $('#tableData').html(rows);
     
-    const end = Math.min(currentIndex + rowsPerPage, allDataRows.length);
-    for (let i = currentIndex; i < end; i++) {
-        const tr = document.createElement('tr');
-        window.currentColumnsVisual.forEach(col => {
-            const td = document.createElement('td');
-            const idx = window.currentJsonColumns.indexOf(col.toLowerCase().replace(/[\s/_]/g, ''));
-            td.innerText = idx !== -1 ? allDataRows[i][idx] : '-';
-            tr.appendChild(td);
-        });
-        tableBody.appendChild(tr);
+    // Define dinamicamente qual coluna será o gatilho padrão de ordenação decrescente (Abates / Kills)
+    // O Rank ocupa o índice 0. Procuramos a coluna de abates baseados nas posições dinâmicas
+    let defaultSortIndex = 2; // Padrão Guilds Total (Rank = 0, Guild = 1, Kills = 2)
+    
+    if (mainCategory === 'guilds' && subCategory === 'battles') defaultSortIndex = 4; // Time(1), ID(2), Guild(3), Kills(4)
+    if (mainCategory === 'players' && subCategory === 'battles') defaultSortIndex = 5; // Time(1), ID(2), Player(3), Guild(4), Kills(5)
+    if (mainCategory === 'players' && subCategory === 'battlestotal') defaultSortIndex = 3; // Player(1), Guild(2), Kills(3)
+
+    // Inicializa o DataTables nativo com recursos completos de pesquisa e performance de rolagem
+    dt = $('#rankTable').DataTable({
+        responsive: true,
+        order: [[defaultSortIndex, "desc"]],
+        pageLength: 50,
+        language: { 
+            search: "PROCURAR:",
+            lengthMenu: "MOSTRAR _MENU_",
+            info: "Mostrando _TOTAL_ registros",
+            paginate: {
+                first: "«",
+                last: "»",
+                next: "›",
+                previous: "‹"
+            }
+        }
+    });
+
+    // Atualiza os seletores de meta informativos no topo da interface
+    if (data[0] && data[0][0]) {
+        // Se for aba de batalha, o índice 0 costuma ser o Time ou ID. Filtramos para pegar o nome
+        let topNameIndex = (subCategory === 'battles') ? 2 : 0; 
+        $('#top-name').text(data[0][topNameIndex] || data[0][0]);
     }
-    currentIndex = end;
-    loadMoreBtn.style.display = currentIndex < allDataRows.length ? 'block' : 'none';
+    $('#total-rows').text(data.length.toLocaleString());
 }
+
+// Inicialização e Gerenciamento de Cliques via jQuery
+$(document).ready(() => {
+    // Escuta mudanças nos seletores globais de Servidor e Mês
+    $('#select-server, #select-month').on('change', () => {
+        loadData();
+    });
+
+    // Evento para Abas Principais (Nível 1)
+    $('.main-tab-btn').on('click', function() {
+        $('.main-tab-btn').classList.remove('active'); // Nota: se der erro de seletor puro, use jQuery:
+        $('.main-tab-btn').removeClass('active');
+        $(this).addClass('active');
+
+        mainCategory = $(this).attr('data-type');
+        
+        // Atualiza os textos dos botões de sub-abas dinamicamente
+        const label = mainCategory.toUpperCase();
+        $('#btn-battles').text(`${label} BATTLES`);
+        $('#btn-total').text(`${label} TOTAL`);
+
+        loadData();
+    });
+
+    // Evento para Sub-Abas (Nível 2)
+    $('.sub-tab-btn').on('click', function() {
+        $('.sub-tab-btn').removeClass('active');
+        $(this).addClass('active');
+
+        subCategory = $(this).attr('data-sub');
+        loadData();
+    });
+
+    // Carregamento Inicial Forçado
+    loadData();
+});
