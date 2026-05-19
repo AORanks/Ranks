@@ -1,29 +1,74 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
 body {
     background-color: #0b0f17;
     color: #cbd5e1;
-    font-family: monospace;
+    font-family: 'Courier New', Courier, monospace;
     padding: 20px;
 }
 
-.container {
-    max-width: 1100px;
+.terminal-container {
+    max-width: 1200px;
     margin: 0 auto;
-    background: #0d111a;
-    padding: 15px;
+    background-color: #0d111a;
     border: 1px solid #1e293b;
     border-radius: 4px;
+    padding: 20px;
 }
 
+.terminal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #1e293b;
+    padding-bottom: 10px;
+}
+
+.terminal-header h1 {
+    font-size: 1.4rem;
+    color: #fff;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.top-meta-cards {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.top-meta-cards strong {
+    color: #2dd4bf;
+}
+
+/* Painel de Filtros */
 .filter-bar {
     display: flex;
-    gap: 15px;
-    margin-bottom: 20px;
+    gap: 20px;
     background: #070a0f;
-    padding: 10px;
+    padding: 12px;
     border-radius: 4px;
+    margin-bottom: 20px;
+    border: 1px solid #1a2333;
 }
 
-select {
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-group label {
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #94a3b8;
+}
+
+.filter-group select {
     background: #111827;
     color: #fff;
     border: 1px solid #334155;
@@ -31,33 +76,94 @@ select {
     font-family: monospace;
     cursor: pointer;
     border-radius: 4px;
+    outline: none;
 }
 
-/* Customização escura para o DataTables padrão */
+.filter-group select:focus {
+    border-color: #f59e0b;
+}
+
+/* Barra de Abas de Botões Planos */
+.main-tabs-container {
+    display: flex;
+    width: 100%;
+    border-bottom: 2px solid #1e293b;
+    background-color: #070a0f;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    background: transparent;
+    color: #475569;
+    border: none;
+    padding: 12px 22px;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    border-bottom: 3px solid transparent;
+}
+
+.tab-btn:hover {
+    color: #94a3b8;
+}
+
+.tab-btn.active {
+    color: #f59e0b !important;
+    border-bottom: 3px solid #f59e0b !important;
+    background: #0d111a;
+}
+
+/* Configuração do DataTables e Layout Responsivo */
+.table-responsive {
+    background: #0d111a;
+    overflow-x: auto;
+}
+
 table.dataTable {
     background-color: #0d111a !important;
+    margin-top: 15px !important;
 }
+
 table.dataTable thead th {
     background-color: #070a0f !important;
     color: #94a3b8 !important;
-    border-bottom: 1px solid #1e293b !important;
+    border-bottom: 2px solid #1e293b !important;
+    padding: 10px !important;
+    font-family: monospace;
+    text-align: left;
 }
+
 table.dataTable tbody tr {
     background-color: #0d111a !important;
     color: #cbd5e1 !important;
 }
+
 table.dataTable tbody tr:hover {
-    background-color: #1a2333 !important;
+    background-color: #1e293b !important;
 }
+
 .dataTables_wrapper .dataTables_filter input {
-    background: #111827;
-    color: #fff;
-    border: 1px solid #334155;
+    background-color: #111827 !important;
+    color: #fff !important;
+    border: 1px solid #334155 !important;
+    padding: 5px 10px !important;
     border-radius: 4px;
-    padding: 4px;
+    outline: none;
 }
-.dataTables_wrapper .dataTables_filter, 
-.dataTables_wrapper .dataTables_length, 
-.dataTables_wrapper .dataTables_info {
+
+.dataTables_wrapper .dataTables_filter input:focus {
+    border-color: #f59e0b;
+}
+
+.dataTables_wrapper .dataTables_filter,
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate {
     color: #64748b !important;
+    font-family: monospace;
+    font-size: 0.85rem;
+    margin-top: 10px;
+    margin-bottom: 10px;
 }
