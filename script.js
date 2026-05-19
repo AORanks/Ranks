@@ -1,9 +1,9 @@
 let allData = [];         // Guarda o array bruto completo vindo do JSON
 let filteredData = [];    // Guarda os dados filtrados pela busca em tempo real
 let displayedCount = 0;   // Controla quantos registros já foram renderizados
-const CHUNK_SIZE = 150;   // Quantidade otimizada de linhas por bloco no scroll
+const CHUNK_SIZE = 150;   // Linhas por bloco no scroll
 
-// Estado inicial correspondente ao primeiro botão ativo
+// Estado inicial correspondente ao primeiro botão ativo da tabela
 let mainCategory = 'guilds'; 
 let subCategory = 'battles'; 
 
@@ -26,18 +26,16 @@ async function loadData() {
     else if (monthValue.includes("mar")) monthNumber = "3";
     else if (monthValue.includes("apr")) monthNumber = "4";
 
-    // Mapeamento das pastas físicas do GitHub
-    let folderSubName = subCategory === 'total' ? 'battlestotal' : 'battles';
     const rootFolder = mainCategory === 'guilds' ? 'Guilds' : 'Players';
-
+    const folderSubName = subCategory === 'total' ? 'battlestotal' : 'battles';
     const folderPath = `${rootFolder}/${server}${mainCategory}${folderSubName}`;
+    
     const fileName = `${mainCategory} (${monthNumber}).json`;
     const finalPath = `./${folderPath}/${fileName}`;
 
     console.log(`[AO Ranks] Efetuando requisição em: ${finalPath}`);
     $('#total-rows').text('...');
     
-    // Reset de estados e limpeza do input ao trocar de aba/filtro
     allData = [];
     filteredData = [];
     displayedCount = 0;
@@ -70,7 +68,7 @@ async function loadData() {
         }
 
         allData = rawArray;
-        filteredData = [...allData]; // Inicialmente os dados filtrados são iguais aos totais
+        filteredData = [...allData]; 
         
         $('#total-rows').text(filteredData.length.toLocaleString('pt-BR'));
 
@@ -136,7 +134,7 @@ function renderTargetRows() {
     const nextChunk = filteredData.slice(displayedCount, displayedCount + CHUNK_SIZE);
     
     if (nextChunk.length === 0 && displayedCount === 0) {
-        $('#table-body').html('<tr><td colspan="10" style="text-align:center; padding:30px; color:#ef4444; font-family:monospace;">[NENHUM RESULTADO CORRESPONDENTE À BUSCA]</td></tr>');
+        $('#table-body').html('<tr><td colspan="10" style="text-align:center; padding:30px; color:#ef4444; font-family:monospace;">[NENHUM RESULTADO ENCONTRADO]</td></tr>');
         return;
     }
 
@@ -184,7 +182,6 @@ function renderTargetRows() {
     displayedCount += nextChunk.length;
 }
 
-// Executa a busca em tempo real com base no input do teclado
 function handleSearch(query) {
     const cleanQuery = query.toLowerCase().trim();
 
@@ -194,22 +191,16 @@ function handleSearch(query) {
     } else {
         $('#clear-search').show();
         filteredData = allData.filter(item => {
-            // Se os dados forem Objetos {}
             if (!Array.isArray(item)) {
                 const nameInObj = (item.GUILDA || item.JOGADOR || '').toLowerCase();
                 return nameInObj.includes(cleanQuery);
-            } 
-            // Fallback se os dados forem Arrays []
-            else {
+            } else {
                 return item.some(field => String(field).toLowerCase().includes(cleanQuery));
             }
         });
     }
 
-    // Atualiza o contador com o número de resultados encontrados
     $('#total-rows').text(filteredData.length.toLocaleString('pt-BR'));
-    
-    // Reseta o scroll e re-renderiza a tabela filtrada
     displayedCount = 0;
     $('#table-body').empty();
     $('#scroll-box').scrollTop(0);
@@ -307,18 +298,29 @@ $(document).ready(() => {
         $('.tab-btn').removeClass('active');
         $(this).addClass('active');
 
-        mainCategory = $(this).attr('data-main').toLowerCase().trim();
-        subCategory = $(this).attr('data-sub').toLowerCase().trim();
+        const textBtn = $(this).text().toLowerCase().trim();
+
+        if (textBtn.includes('guilds battles')) {
+            mainCategory = 'guilds';
+            subCategory = 'battles';
+        } else if (textBtn.includes('guilds total')) {
+            mainCategory = 'guilds';
+            subCategory = 'total';
+        } else if (textBtn.includes('players battles')) {
+            mainCategory = 'players';
+            subCategory = 'battles';
+        } else if (textBtn.includes('players total')) {
+            mainCategory = 'players';
+            subCategory = 'total';
+        }
         
         loadData();
     });
 
-    // ESCUTADOR DA BARRA DE BUSCA (Input Dinâmico)
     $('#search-input').on('input', function() {
         handleSearch($(this).val());
     });
 
-    // Botão de limpar a busca instantaneamente
     $('#clear-search').on('click', function() {
         $('#search-input').val('');
         handleSearch('');
