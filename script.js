@@ -1,9 +1,9 @@
 let dt = null;
+let mainCategory = 'guilds';
+let subCategory = 'battles';
 
 async function loadData() {
     const server = $('#select-server').val().toLowerCase().trim(); 
-    const mainCategory = $('#select-type').val().toLowerCase().trim(); // 'guilds' ou 'players'
-    const subCategory = $('#select-mode').val().toLowerCase().trim(); // 'battles' ou 'battlestotal'
     const monthValue = $('#select-month').val().toLowerCase().trim(); 
     
     let monthNumber = "1";
@@ -16,16 +16,16 @@ async function loadData() {
     const fileName = `${mainCategory} (${monthNumber}).json`;
     const finalPath = `./${folderName}/${fileName}`;
 
-    console.log(`[AO Ranks] Carregando rota: ${finalPath}`);
+    console.log(`[AO Ranks] Solicitando: ${finalPath}`);
     $('#total-rows').text('Carregando...');
 
-    // 1. DESTRUIÇÃO PREVENTIVA DA INSTÂNCIA ANTERIOR DO DATATABLES
+    // 1. DESTRUIÇÃO AGRESSIVA DO DATATABLES ANTES DO FETCH (Evita travar na troca de abas)
     if (dt) {
         dt.clear().destroy();
         dt = null;
     }
     
-    // Raspa completamente a tabela física para apagar as larguras e dados antigos de cache
+    // Apaga completamente o HTML interno da tabela para limpar o cache de colunas antigas
     $('#rankTable').empty(); 
     $('#rankTable').html('<thead id="table-head"></thead><tbody id="tableData"></tbody>');
 
@@ -33,39 +33,39 @@ async function loadData() {
         const response = await fetch(finalPath);
         
         if (!response.ok) {
-            throw new Error(`Código ${response.status}: Não localizou "${fileName}" na pasta "${folderName}".`);
+            throw new Error(`Código ${response.status}: Não achou "${fileName}" em "${folderName}".`);
         }
         
         const json = await response.json();
         
         if (!json.d || json.d.length === 0) {
-            throw new Error("O campo de dados ('d') do JSON está vazio.");
+            throw new Error("A lista de dados ('d') está vazia.");
         }
 
-        renderTable(json.d, mainCategory);
+        renderTable(json.d);
         
     } catch (err) {
         console.error(err);
         $('#total-rows').text('Erro');
         $('#top-name').text('---');
         
-        $('#table-head').html(`<tr><th>ERRO DE AMBIENTE / ARQUIVO NÃO ENCONTRADO</th></tr>`);
+        $('#table-head').html(`<tr><th>ERRO DE CONEXÃO / ARQUIVO NÃO LOCALIZADO</th></tr>`);
         $('#tableData').html(`
             <tr>
                 <td style="color:#f59e0b; padding:25px; font-family:monospace; white-space:normal; line-height:1.6;">
-                    <strong>Tentativa no arquivo:</strong> ${finalPath}<br><br>
-                    <strong>Nota:</strong> Certifique-se de carregar este projeto via <strong>Live Server</strong> (VS Code) para permitir requisições de arquivos locais.
+                    <strong>Caminho Solicitado:</strong> ${finalPath}<br><br>
+                    <strong>Nota:</strong> Se o erro for 'Failed to fetch', lembre-se de rodar o projeto através do <strong>Live Server</strong> no VS Code. O navegador bloqueia requisições locais se abrir o arquivo HTML direto com dois cliques.
                 </td>
             </tr>
         `);
     }
 }
 
-function renderTable(data, mainCategory) {
+function renderTable(data) {
     const sampleRow = data[0];
     const totalColumns = sampleRow.length;
 
-    // 2. MONTAGEM DO CABEÇALHO BASEADO NO MODELO DETECTADO DO JSON
+    // 2. DETECÇÃO AUTOMÁTICA DE COLUNAS BASEADA NO JSON RECEBIDO
     let headersHtml = '<tr><th>RANK</th>';
     if (mainCategory === 'guilds') {
         if (totalColumns === 6) { 
@@ -83,7 +83,7 @@ function renderTable(data, mainCategory) {
     headersHtml += '</tr>';
     $('#table-head').html(headersHtml);
 
-    // 3. PROCESSAMENTO DE STRINGS EM LOOP ULTRA RÁPIDO FOR
+    // 3. RENDERIZAÇÃO EM BUFFER STRING COM LOOP NATIVO 'FOR' (Alta performance)
     let rowsHtml = '';
     const totalRows = data.length;
     
@@ -105,13 +105,13 @@ function renderTable(data, mainCategory) {
     }
     $('#tableData').html(rowsHtml);
 
-    // 4. MAPEAMENTO AUTOMÁTICO DO GATILHO DE ORDENAÇÃO DE ABATES (KILLS)
+    // 4. DEFINE A COLUNA PADRÃO PARA ORDENAÇÃO DE ABATES (KILLS)
     let sortColumnIndex = 1; 
     if (mainCategory === 'guilds' && totalColumns === 6) sortColumnIndex = 4;
     if (mainCategory === 'players' && totalColumns === 7) sortColumnIndex = 5;
     if (mainCategory === 'players' && totalColumns === 5) sortColumnIndex = 3;
 
-    // 5. INICIALIZAÇÃO BLINDADA COM DELAY SEGURO DE SEGMENTO DE MEMÓRIA
+    // 5. INICIALIZAÇÃO BLINDADA COM DELAY DE SEGURANÇA
     setTimeout(() => {
         if ($.fn.DataTable.isDataTable('#rankTable')) {
             $('#rankTable').DataTable().destroy();
@@ -121,7 +121,7 @@ function renderTable(data, mainCategory) {
             responsive: true,
             order: [[sortColumnIndex, "desc"]],
             pageLength: 50,
-            deferRender: true, // Paginação sob demanda (não engasga navegadores)
+            deferRender: true, // Renderiza as linhas sob demanda apenas ao paginar (zero travamentos)
             destroy: true,
             language: { 
                 search: "PROCURAR:",
@@ -132,7 +132,7 @@ function renderTable(data, mainCategory) {
         });
     }, 20);
 
-    // Atualiza metadados do topo
+    // Atualiza metadados superiores do painel
     if (sampleRow) {
         let nameIndex = (totalColumns > 5) ? 2 : 0;
         $('#top-name').text(sampleRow[nameIndex] || sampleRow[0]);
@@ -141,11 +141,24 @@ function renderTable(data, mainCategory) {
 }
 
 $(document).ready(() => {
-    // Escuta qualquer mudança em qualquer um dos 4 seletores e executa na hora
-    $('#select-server, #select-type, #select-mode, #select-month').on('change', () => {
+    // Escuta mudanças nos seletores de Servidor e Mês
+    $('#select-server, #select-month').on('change', () => {
         loadData();
     });
 
-    // Primeira carga ao carregar o DOM
+    // Escuta cliques na barra de botões planos
+    $('.tab-btn').on('click', function() {
+        if ($(this).hasClass('active')) return; // Ignora cliques repetidos no mesmo botão ativo
+        
+        $('.tab-btn').removeClass('active');
+        $(this).addClass('active');
+
+        mainCategory = $(this).attr('data-main');
+        subCategory = $(this).attr('data-sub');
+
+        loadData();
+    });
+
+    // Carga inicial do sistema
     loadData();
 });
