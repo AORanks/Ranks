@@ -1,30 +1,22 @@
-// Valores padrão definidos de forma explícita para evitar falhas de inicialização nula
 let dt = null;
 let mainCategory = 'guilds';
 let subCategory = 'battles';
 
 async function loadData() {
-    // Coleta os elementos DOM de forma segura
     const serverElement = $('#select-server');
     const monthElement = $('#select-month');
 
-    // Validação de curto-circuito para impedir erros de propriedades de objetos indefinidos
-    if (!serverElement.length || !monthElement.length) {
-        console.warn("[AO Ranks] Aguardando inicialização completa do DOM.");
-        return;
-    }
+    if (!serverElement.length || !monthElement.length) return;
 
     const server = serverElement.val().toLowerCase().trim();
     const monthValue = monthElement.val().toLowerCase().trim();
     
-    // Mapeamento numérico exato para corresponder à estrutura de pastas do projeto
     let monthNumber = "1";
     if (monthValue.includes("jan")) monthNumber = "1";
     else if (monthValue.includes("feb")) monthNumber = "2";
     else if (monthValue.includes("mar")) monthNumber = "3";
     else if (monthValue.includes("apr")) monthNumber = "4";
 
-    // Concatenação de string para montagem do caminho do arquivo local
     const folderName = `${server}${mainCategory}${subCategory}`;
     const fileName = `${mainCategory} (${monthNumber}).json`;
     const finalPath = `./${folderName}/${fileName}`;
@@ -42,25 +34,22 @@ async function loadData() {
         console.error(err);
         $('#total-rows').text('Erro');
         
-        // Renderização de aviso contendo informações úteis para diagnóstico na tela
         $('#table-wrapper').html(`
             <div style="color: #f59e0b; font-family: monospace; padding: 20px; border: 1px dashed #334155; line-height: 1.5;">
-                <strong>[STATUS 404 - NOT FOUND]:</strong> O arquivo de dados não foi localizado.<br>
-                <strong>Caminho Solicitado:</strong> ${finalPath}<br><br>
-                <span>Certifique-se de que a pasta local e os arquivos JSON estão nomeados corretamente. Se estiver rodando localmente no navegador, use a extensão <em>Live Server</em> do VS Code para evitar bloqueios de requisições.</span>
+                <strong>[STATUS 404]:</strong> O arquivo de dados não foi localizado.<br>
+                <strong>Caminho Solicitado:</strong> ${finalPath}
             </div>
         `);
     }
 }
 
 function renderTable(data) {
-    // Desvincula e destrói instâncias existentes do DataTables para liberar alocação de memória
     if (dt) {
         dt.destroy();
         dt = null;
     }
 
-    // Recriação limpa do contêiner da tabela para evitar colisão de estilos e metadados de colunas antigas
+    // Recriação limpa do contêiner da tabela
     $('#table-wrapper').html(`
         <table id="rankTable" class="display nowrap" style="width:100%">
             <thead id="table-head"></thead>
@@ -73,7 +62,6 @@ function renderTable(data) {
     const totalColumns = data[0].length;
     let headers = '<tr><th>RANK</th>';
     
-    // Estruturação condicional do cabeçalho de acordo com a categoria e tamanho do array interno
     if (mainCategory === 'guilds') {
         headers += (totalColumns === 6)
             ? '<th>TIME</th><th>BATTLE ID</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>'
@@ -86,7 +74,7 @@ function renderTable(data) {
     headers += '</tr>';
     $('#table-head').html(headers);
 
-    // Injeção de linhas com processamento otimizado de loops indexados nuançados
+    // Injeção de linhas acelerada em memória
     let rowsHtml = '';
     for (let i = 0; i < data.length; i++) {
         let cells = `<td style="color: #f59e0b; font-weight: bold; text-align: center;">#${i + 1}</td>`;
@@ -103,30 +91,37 @@ function renderTable(data) {
     }
     $('#tableData').html(rowsHtml);
 
-    // Identificação dinâmica da coluna indexada de abates (Kills) para ordenação descendente inicial
+    // Define índice de ordenação padrão (Coluna de Abates/Kills)
     let sortIndex = 1;
     if (mainCategory === 'guilds' && totalColumns === 6) sortIndex = 4;
     if (mainCategory === 'players' && totalColumns === 7) sortIndex = 5;
     if (mainCategory === 'players' && totalColumns === 5) sortIndex = 3;
 
-    // Vinculação e ativação isolada do plug-in DataTables
+    // ATIVAÇÃO DO SCROLLER PROFISSIONAL (Carregamento Dinâmico por Scroll)
     dt = $('#rankTable').DataTable({
         responsive: true,
         order: [[sortIndex, "desc"]],
-        pageLength: 25,
-        deferRender: true,
+        
+        // Configurações críticas para Scroll Infinito de Alta Performance:
+        deferRender:    true,           // Só renderiza no HTML o que está visível na tela
+        scrollY:        "500px",        // Altura máxima da janela de scroll da tabela
+        scrollCollapse: true,           // Ajusta a altura caso o resultado tenha menos linhas
+        scroller: {
+            loadingIndicator: true,     // Mostra um aviso visual sutil de "Carregando..." ao rolar rápido
+            displayBuffer: 4            // Mantém um cache pequeno de segurança (calcula cerca de 100 registros por bloco)
+        },
+        dom: 'frti',                    // Remove os botões de paginação (1, 2, 3...) do rodapé automaticamente
+        
         language: {
-            search: "PROCURAR:",
-            lengthMenu: "MOSTRAR _MENU_",
-            info: "Registros: _TOTAL_",
-            paginate: { next: "›", previous: "‹" }
+            search: "PROCURAR IN-LINE:",
+            info: "Exibindo de _START_ a _END_ (Total: _TOTAL_ registros)",
+            infoFiltered: " - filtrados de _MAX_"
         }
     });
 
     $('#total-rows').text(data.length.toLocaleString('pt-BR'));
 }
 
-// Configuração centralizada de escuta de eventos
 $(document).ready(() => {
     $('#select-server, #select-month').on('change', loadData);
 
@@ -142,6 +137,5 @@ $(document).ready(() => {
         loadData();
     });
 
-    // Inicialização da primeira carga de dados
     loadData();
 });
