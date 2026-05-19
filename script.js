@@ -46,7 +46,7 @@ async function loadData() {
     allData = [];
     displayedCount = 0;
     currentSortColumn = null;
-    isAscending = false; // Define falso para começar do maior para o menor
+    isAscending = false; // Começa como falso para ordenar do maior para o menor (Descendente)
     
     // Injeta a estrutura de rolagem de forma limpa na DOM
     $('#table-wrapper').html(`
@@ -89,7 +89,7 @@ async function loadData() {
         currentSortColumn = killColumnIndex;
         sortDataByColumn(killColumnIndex, false);
 
-        // Adiciona o indicador visual visual (setinha para baixo) na coluna de abates
+        // Adiciona o indicador visual (setinha para baixo) na coluna de abates
         $(`th[data-col="${killColumnIndex}"]`).addClass('sort-desc');
 
         renderTargetRows();
@@ -182,9 +182,20 @@ function sortDataByColumn(colIndex, asc) {
     allData.sort((a, b) => {
         let valA = a[colIndex];
         let valB = b[colIndex];
+
         if (valA === null || valA === undefined) valA = asc ? Infinity : -Infinity;
         if (valB === null || valB === undefined) valB = asc ? Infinity : -Infinity;
 
+        // Limpa pontos de milhar e tenta converter a String do JSON para número real
+        let numA = Number(String(valA).replace(/\./g, ''));
+        let numB = Number(String(valB).replace(/\./g, ''));
+
+        // Se ambos forem numéricos, executa a comparação matemática pura
+        if (!isNaN(numA) && !isNaN(numB)) {
+            return asc ? numA - numB : numB - numA;
+        }
+
+        // Se for string de texto normal (Nome de guilda/player), mantém a ordenação alfabética
         if (typeof valA === 'string' && typeof valB === 'string') {
             return asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
         }
