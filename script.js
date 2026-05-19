@@ -1,15 +1,15 @@
 let currentCategory = 'guildsbattles';
 let allDataRows = []; 
 let currentIndex = 0;
-const rowsPerPage = 100; // Renderização em blocos para performance máxima
+const rowsPerPage = 100; // Evita travamentos na tela dividindo o carregamento em blocos
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Cria o botão de "Carregar Mais" dinamicamente caso ele não exista
+    // Garante que o botão de "Carregar Mais" seja injetado de forma dinâmica e limpa abaixo da tabela
     if (!document.getElementById('load-more-btn')) {
         const btn = document.createElement('button');
         btn.id = 'load-more-btn';
-        btn.innerText = 'Carregar Mais Registros';
-        btn.style = 'display:none; margin: 20px auto; padding: 10px 20px; background: #00ff87; color: #000; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-family: monospace;';
+        btn.innerText = 'CARREGAR MAIS REGISTROS';
+        btn.style = 'display:none; margin: 20px auto; padding: 12px 24px; background: #00ff87; color: #000; border: none; font-family: monospace; font-weight: bold; cursor: pointer; box-shadow: 0 0 10px rgba(0, 255, 135, 0.3);';
         btn.onclick = () => renderNextRows();
         document.querySelector('.table-responsive').after(btn);
     }
@@ -25,32 +25,32 @@ function switchCategory(event, category) {
 }
 
 function applyFilters() {
-    const server = document.getElementById('select-server').value.toLowerCase().trim(); // ex: americas, asia, europe
+    const server = document.getElementById('select-server').value.toLowerCase().trim(); 
     const monthValue = document.getElementById('select-month').value.toLowerCase().trim();
     
-    // Mapeia o valor do select do HTML para o número do arquivo correspondente (1, 2, 3, 4)
+    // Converte a string do select no número exato do arquivo (1, 2, 3, 4)
     let monthNumber = "1";
     if (monthValue === "january" || monthValue === "janeiro") monthNumber = "1";
     else if (monthValue === "february" || monthValue === "fevereiro") monthNumber = "2";
     else if (monthValue === "march" || monthValue === "março") monthNumber = "3";
     else if (monthValue === "april" || monthValue === "abril") monthNumber = "4";
 
-    // Define a pasta exata baseada na nova estrutura unificada (ex: americasguildsbattles)
+    // Define o diretório combinando o servidor com a aba selecionada (ex: europeguildsbattlestotal)
     const folderName = `${server}${currentCategory}`; 
     let fileName = "";
 
-    // Mapeia o nome exato dos arquivos com os parênteses
+    // Sincroniza os nomes de arquivos padronizados em lote
     if (currentCategory.startsWith('guilds')) {
-        fileName = `guilds (${monthNumber}).json`; // vira guilds (1).json, etc.
+        fileName = `guilds (${monthNumber}).json`; 
     } else if (currentCategory.startsWith('players')) {
-        fileName = `players (${monthNumber}).json`; // vira players (1).json, etc.
+        fileName = `players (${monthNumber}).json`; 
     }
 
-    // Rota local perfeita
+    // Monta a URL estritamente local (./pasta/arquivo.json)
     const finalPath = `./${folderName}/${fileName}`;
-    document.getElementById('panel-title').innerText = `Diretório: ${folderName} ➔ ${fileName}`;
+    document.getElementById('panel-title').innerText = `DIRETÓRIO ATIVO: ./${folderName}/${fileName}`;
 
-    // Configuração estrita dos cabeçalhos das colunas
+    // Definição exata e padronizada dos cabeçalhos visuais solicitados
     let columnsVisual = [];
     if (currentCategory === 'guildsbattles') {
         columnsVisual = ['Time', 'Battle ID', 'Guild', 'Kills', 'Deaths', 'Fame'];
@@ -70,26 +70,28 @@ function fetchData(fullPath, columnsVisual) {
     const tableBody = document.getElementById('table-body');
     const loadMoreBtn = document.getElementById('load-more-btn');
 
-    headerRow.innerHTML = '<th>Acessando arquivos locais...</th>';
+    headerRow.innerHTML = '<th>ACESSANDO BANCO DE DADOS LOCAL...</th>';
     tableBody.innerHTML = '';
     if (loadMoreBtn) loadMoreBtn.style.display = 'none';
 
     fetch(fullPath)
         .then(response => {
-            if (!response.ok) throw new Error(`Arquivo não encontrado localmente.`);
+            if (!response.ok) throw new Error(`Arquivo não localizado.`);
             return response.json();
         })
         .then(jsonData => {
+            // Proteção contra quebras: valida se as estruturas mapeadas 'c' (colunas) e 'd' (dados) existem
             if (!jsonData || !jsonData.c || !Array.isArray(jsonData.d)) {
-                headerRow.innerHTML = '<th>Aviso: Estrutura compacta vazia ou inválida.</th>';
+                headerRow.innerHTML = '<th>ERRO: Estrutura compacta do banco de dados está vazia ou corrompida.</th>';
                 return;
             }
 
-            // Normalização das chaves para bater com as chaves do banco de dados compacto ("c")
+            // Normaliza as strings da chave "c" enviadas do backend para casar com as colunas na tela
             const jsonColumnsNormalized = jsonData.c.map(col => 
                 col.toLowerCase().replace(' ', '').replace('/', '').replace('_', '')
             );
 
+            // Monta dinamicamente a linha de cabeçalhos (th)
             headerRow.innerHTML = '';
             columnsVisual.forEach(col => {
                 const th = document.createElement('th');
@@ -97,22 +99,24 @@ function fetchData(fullPath, columnsVisual) {
                 headerRow.appendChild(th);
             });
 
+            // Aloca a matriz completa de registros na memória local e zera o cursor de paginação
             allDataRows = jsonData.d;
             window.currentJsonColumns = jsonColumnsNormalized;
             window.currentColumnsVisual = columnsVisual;
             currentIndex = 0;
 
+            // Dispara o carregamento do lote inicial
             renderNextRows();
         })
         .catch(error => {
-            console.warn("Erro detectado:", error.message);
-            headerRow.innerHTML = '<th>Arquivo não localizado</th>';
+            console.warn("Fetch Error:", error.message);
+            headerRow.innerHTML = '<th>ARQUIVO INDISPONÍVEL</th>';
             tableBody.innerHTML = `
                 <tr>
-                    <td style="color: #a8a8b3; padding: 20px; line-height: 1.6; font-family: monospace;">
-                        Não foi possível carregar a tabela:<br>
-                        <strong style="color: #ff6b6b;">${fullPath}</strong><br><br>
-                        <span style="color: #fff; font-weight: bold;">Causa provável:</span> O arquivo ou a pasta não existem localmente ou o nome do mês selecionado não corresponde aos números dos arquivos da pasta.
+                    <td style="color: #a8a8b3; padding: 24px; line-height: 1.8; font-family: monospace;">
+                        <span style="color: #ff6b6b; font-weight: bold;">Status 404 - Não Encontrado:</span> O navegador não localizou o arquivo no caminho esperado:<br>
+                        <strong style="color: #66c2ba;">${fullPath}</strong><br><br>
+                        <span style="color: #fff; font-weight: bold;">O que verificar:</span> Certifique-se de que o GitHub Actions terminou o deploy da branch <code style="color: #00ff87;">ajustes</code> e que a pasta existe no servidor com os arquivos renomeados.
                     </td>
                 </tr>`;
         });
@@ -126,6 +130,7 @@ function renderNextRows() {
     
     if (!Array.isArray(allDataRows) || allDataRows.length === 0) return;
 
+    // Calcula o escopo do bloco atual (atual até o limite de +100 linhas ou fim do arquivo)
     const end = Math.min(currentIndex + rowsPerPage, allDataRows.length);
 
     for (let i = currentIndex; i < end; i++) {
@@ -136,6 +141,7 @@ function renderNextRows() {
         
         columnsVisual.forEach(col => {
             const td = document.createElement('td');
+            // Remove espaços e caracteres especiais para fazer a correspondência de índice estável
             const colNormalized = col.toLowerCase().replace(' ', '').replace('/', '').replace('_', '');
             const indexInJson = jsonColumnsNormalized.indexOf(colNormalized);
             
@@ -151,8 +157,10 @@ function renderNextRows() {
         tableBody.appendChild(tr);
     }
 
+    // Avança o ponteiro do cursor
     currentIndex = end;
 
+    // Gerencia a visibilidade do botão de rolagem
     if (currentIndex < allDataRows.length) {
         if (loadMoreBtn) loadMoreBtn.style.display = 'block';
     } else {
