@@ -1,8 +1,8 @@
-/* Container do Buscador Estilo Hacker */
+/* Container do Buscador Estilo Hacker - Corrigido */
 .search-container {
     display: flex;
     align-items: center;
-    background: #070a0f;
+    background: #070a0f; /* Fundo Escuro Original */
     border: 1px solid #1e293b;
     padding: 8px 16px;
     margin-bottom: 15px;
@@ -10,7 +10,7 @@
 }
 
 .search-prompt {
-    color: #f59e0b; /* Âmbar Neo */
+    color: #F59E0B; /* Âmbar Original */
     font-family: monospace;
     font-weight: bold;
     font-size: 18px;
@@ -23,20 +23,20 @@
     background: transparent;
     border: none;
     outline: none;
-    color: #2dd4bf; /* Teal Accent */
+    color: #66c2ba; /* Teal Correto da tua Paleta */
     font-family: monospace;
     font-size: 14px;
     letter-spacing: 1px;
 }
 
 #search-input::placeholder {
-    color: #475569;
+    color: #475569; /* Tom opaco para o texto de ajuda */
 }
 
 #clear-search {
     background: transparent;
     border: none;
-    color: #ef4444;
+    color: #F59E0B; /* Botão de limpar alinhado em Âmbar */
     font-family: monospace;
     cursor: pointer;
     font-weight: bold;
@@ -44,5 +44,5 @@
 }
 
 #clear-search:hover {
-    color: #f87171;
+    color: #66c2ba; /* Efeito hover com o teu Teal */
 }
