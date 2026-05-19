@@ -1,10 +1,13 @@
 let currentCategory = 'guildsbattles';
 let allDataRows = []; 
 let currentIndex = 0;
-const rowsPerPage = 100; // Evita travamentos na tela dividindo o carregamento em blocos
+const rowsPerPage = 100; 
+
+// Gerenciamento do estado da ordenação pelas colunas
+let currentSortColumn = null;
+let isAscending = true;
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Garante que o botão de "Carregar Mais" seja injetado de forma dinâmica e limpa abaixo da tabela
     if (!document.getElementById('load-more-btn')) {
         const btn = document.createElement('button');
         btn.id = 'load-more-btn';
@@ -21,6 +24,11 @@ function switchCategory(event, category) {
     buttons.forEach(btn => btn.classList.remove('active'));
     if (event.currentTarget) event.currentTarget.classList.add('active');
     currentCategory = category;
+    
+    // Reseta o estado da ordenação ao alternar abas
+    currentSortColumn = null;
+    isAscending = true;
+    
     applyFilters();
 }
 
@@ -28,29 +36,24 @@ function applyFilters() {
     const server = document.getElementById('select-server').value.toLowerCase().trim(); 
     const monthValue = document.getElementById('select-month').value.toLowerCase().trim();
     
-    // Converte a string do select no número exato do arquivo (1, 2, 3, 4)
     let monthNumber = "1";
     if (monthValue === "january" || monthValue === "janeiro") monthNumber = "1";
     else if (monthValue === "february" || monthValue === "fevereiro") monthNumber = "2";
     else if (monthValue === "march" || monthValue === "março") monthNumber = "3";
     else if (monthValue === "april" || monthValue === "abril") monthNumber = "4";
 
-    // Define o diretório combinando o servidor com a aba selecionada (ex: europeguildsbattlestotal)
     const folderName = `${server}${currentCategory}`; 
     let fileName = "";
 
-    // Sincroniza os nomes de arquivos padronizados em lote
     if (currentCategory.startsWith('guilds')) {
         fileName = `guilds (${monthNumber}).json`; 
     } else if (currentCategory.startsWith('players')) {
         fileName = `players (${monthNumber}).json`; 
     }
 
-    // Monta a URL estritamente local (./pasta/arquivo.json)
     const finalPath = `./${folderName}/${fileName}`;
-    document.getElementById('panel-title')
+    console.log(`Buscando arquivo no caminho local: ${finalPath}`);
 
-    // Definição exata e padronizada dos cabeçalhos visuais solicitados
     let columnsVisual = [];
     if (currentCategory === 'guildsbattles') {
         columnsVisual = ['Time', 'Battle ID', 'Guild', 'Kills', 'Deaths', 'Fame'];
@@ -76,37 +79,31 @@ function fetchData(fullPath, columnsVisual) {
 
     fetch(fullPath)
         .then(response => {
-            if (!response.ok) throw new Error(`Arquivo não localizado.`);
+            if (!response.ok) throw new Error(`Status ${response.status}: Arquivo não localizado.`);
             return response.json();
         })
         .then(jsonData => {
-            // Proteção contra quebras: valida se as estruturas mapeadas 'c' (colunas) e 'd' (dados) existem
             if (!jsonData || !jsonData.c || !Array.isArray(jsonData.d)) {
-                headerRow.innerHTML = '<th>ERRO: Estrutura compacta do banco de dados está vazia ou corrompida.</th>';
+                headerRow.innerHTML = '<th>ERRO: Estrutura compacta vazia ou inválida.</th>';
                 return;
             }
 
-            // Normaliza as strings da chave "c" enviadas do backend para casar com as colunas na tela
             const jsonColumnsNormalized = jsonData.c.map(col => 
                 col.toLowerCase().replace(' ', '').replace('/', '').replace('_', '')
             );
 
-            // Monta dinamicamente a linha de cabeçalhos (th)
-            headerRow.innerHTML = '';
-            columnsVisual.forEach(col => {
-                const th = document.createElement('th');
-                th.innerText = col.toUpperCase();
-                headerRow.appendChild(th);
-            });
-
-            // Aloca a matriz completa de registros na memória local e zera o cursor de paginação
             allDataRows = jsonData.d;
             window.currentJsonColumns = jsonColumnsNormalized;
             window.currentColumnsVisual = columnsVisual;
             currentIndex = 0;
 
-            // Dispara o carregamento do lote inicial
-            renderNextRows();
+            // Mantém ordenação ativa se o usuário já tiver clicado antes de atualizar filtros
+            if (currentSortColumn) {
+                sortData(currentSortColumn, false);
+            } else {
+                renderHeaders();
+                renderNextRows(true);
+            }
         })
         .catch(error => {
             console.warn("Fetch Error:", error.message);
@@ -114,23 +111,92 @@ function fetchData(fullPath, columnsVisual) {
             tableBody.innerHTML = `
                 <tr>
                     <td style="color: #a8a8b3; padding: 24px; line-height: 1.8; font-family: monospace;">
-                        <span style="color: #ff6b6b; font-weight: bold;">Status 404 - Não Encontrado:</span> O navegador não localizou o arquivo no caminho esperado:<br>
+                        <span style="color: #ff6b6b; font-weight: bold;">Erro de Carregamento:</span> O arquivo local não foi encontrado:<br>
                         <strong style="color: #66c2ba;">${fullPath}</strong><br><br>
-                        <span style="color: #fff; font-weight: bold;">O que verificar:</span> Certifique-se de que o GitHub Actions terminou o deploy da branch <code style="color: #00ff87;">ajustes</code> e que a pasta existe no servidor com os arquivos renomeados.
+                        <span style="color: #fff; font-weight: bold;">Verifique se as pastas e arquivos locais existem no seu diretório com as nomenclaturas exatas.</span>
                     </td>
                 </tr>`;
         });
 }
 
-function renderNextRows() {
+function renderHeaders() {
+    const headerRow = document.getElementById('table-header');
+    const columnsVisual = window.currentColumnsVisual;
+    
+    headerRow.innerHTML = '';
+    columnsVisual.forEach(col => {
+        const th = document.createElement('th');
+        th.style.cursor = 'pointer';
+        th.style.userSelect = 'none';
+        
+        let arrow = '';
+        if (col === currentSortColumn) {
+            arrow = isAscending ? ' ▲' : ' ▼';
+        }
+        
+        th.innerText = col.toUpperCase() + arrow;
+        th.onclick = () => sortData(col, true);
+        headerRow.appendChild(th);
+    });
+}
+
+function sortData(columnName, toggleDirection) {
+    const jsonColumnsNormalized = window.currentJsonColumns;
+    const colNormalized = columnName.toLowerCase().replace(' ', '').replace('/', '').replace('_', '');
+    const indexInJson = jsonColumnsNormalized.indexOf(colNormalized);
+    
+    if (indexInJson === -1) return;
+
+    if (toggleDirection) {
+        if (currentSortColumn === columnName) {
+            isAscending = !isAscending;
+        } else {
+            currentSortColumn = columnName;
+            isAscending = true;
+        }
+    }
+
+    allDataRows.sort((rowA, rowB) => {
+        let valA = rowA[indexInJson];
+        let valB = rowB[indexInJson];
+
+        if (valA === null || valA === undefined) valA = '';
+        if (valB === null || valB === undefined) valB = '';
+
+        const numA = Number(valA);
+        const numB = Number(valB);
+        
+        // Se as duas entradas forem puramente numéricas, ordena numericamente
+        if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
+            return isAscending ? numA - numB : numB - numA;
+        }
+
+        // Caso contrário, ordena de forma alfabética padrão string
+        const strA = String(valA).toLowerCase();
+        const strB = String(valB).toLowerCase();
+
+        if (strA < strB) return isAscending ? -1 : 1;
+        if (strA > strB) return isAscending ? 1 : -1;
+        return 0;
+    });
+
+    currentIndex = 0;
+    renderHeaders();
+    renderNextRows(true);
+}
+
+function renderNextRows(clearTable = false) {
     const tableBody = document.getElementById('table-body');
     const loadMoreBtn = document.getElementById('load-more-btn');
     const columnsVisual = window.currentColumnsVisual;
     const jsonColumnsNormalized = window.currentJsonColumns;
     
+    if (clearTable) {
+        tableBody.innerHTML = '';
+    }
+    
     if (!Array.isArray(allDataRows) || allDataRows.length === 0) return;
 
-    // Calcula o escopo do bloco atual (atual até o limite de +100 linhas ou fim do arquivo)
     const end = Math.min(currentIndex + rowsPerPage, allDataRows.length);
 
     for (let i = currentIndex; i < end; i++) {
@@ -141,7 +207,6 @@ function renderNextRows() {
         
         columnsVisual.forEach(col => {
             const td = document.createElement('td');
-            // Remove espaços e caracteres especiais para fazer a correspondência de índice estável
             const colNormalized = col.toLowerCase().replace(' ', '').replace('/', '').replace('_', '');
             const indexInJson = jsonColumnsNormalized.indexOf(colNormalized);
             
@@ -157,10 +222,8 @@ function renderNextRows() {
         tableBody.appendChild(tr);
     }
 
-    // Avança o ponteiro do cursor
     currentIndex = end;
 
-    // Gerencia a visibilidade do botão de rolagem
     if (currentIndex < allDataRows.length) {
         if (loadMoreBtn) loadMoreBtn.style.display = 'block';
     } else {
