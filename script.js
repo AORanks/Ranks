@@ -69,9 +69,8 @@ async function loadData() {
         allData = json.d;
         $('#total-rows').text(allData.length.toLocaleString('pt-BR'));
 
-        // Detecta o número real de colunas do JSON injetado
-        const totalColumns = allData[0].length;
-        renderHeaders(totalColumns);
+        // Renderiza cabeçalhos baseados na aba ativa e não no tamanho do JSON
+        renderHeaders();
 
         // BUSCA DINÂMICA: Acha o índice real da coluna "ABATES" para alinhar a ordenação
         let killColumnIndex = 0;
@@ -104,12 +103,12 @@ async function loadData() {
     }
 }
 
-function renderHeaders(totalColumns) {
+function renderHeaders() {
     let headers = '<tr><th class="clickable-header" data-col="rank" style="width: 80px; text-align: center;">RANK</th>';
     
     if (mainCategory === 'guilds') {
-        // Se tem 6 colunas, é a aba normal de Battles (Time, Battle ID, Guilda, Abates, Mortes, Fama)
-        if (totalColumns === 6) {
+        if (subCategory === 'battles') {
+            // Aba Guilds Battles (6 colunas de dados vindo do JSON)
             headers += '<th class="clickable-header" data-col="0">TIME</th>' +
                        '<th class="clickable-header" data-col="1">BATTLE ID</th>' +
                        '<th class="clickable-header" data-col="2">GUILDA</th>' +
@@ -117,15 +116,15 @@ function renderHeaders(totalColumns) {
                        '<th class="clickable-header" data-col="4">MORTES</th>' +
                        '<th class="clickable-header" data-col="5">FAMA</th>';
         } else {
-            // Se NÃO tem 6 colunas, é a tua pasta TOTAL (Estrutura direta: Guilda, Abates, Mortes, Fama)
+            // Aba Guilds Total (Força os índices corretos das 4 colunas reais do arquivo total)
             headers += '<th class="clickable-header" data-col="0">GUILDA</th>' +
                        '<th class="clickable-header" data-col="1">ABATES</th>' +
                        '<th class="clickable-header" data-col="2">MORTES</th>' +
                        '<th class="clickable-header" data-col="3">FAMA</th>';
         }
     } else {
-        // Se tem 7 colunas, é a aba de Players Battles
-        if (totalColumns === 7) {
+        if (subCategory === 'battles') {
+            // Aba Players Battles (7 colunas de dados vindo do JSON)
             headers += '<th class="clickable-header" data-col="0">TIME</th>' +
                        '<th class="clickable-header" data-col="1">BATTLE ID</th>' +
                        '<th class="clickable-header" data-col="2">JOGADOR</th>' +
@@ -134,7 +133,7 @@ function renderHeaders(totalColumns) {
                        '<th class="clickable-header" data-col="5">MORTES</th>' +
                        '<th class="clickable-header" data-col="6">FAMA</th>';
         } else {
-            // Se NÃO tem, é a pasta de Players TOTAL (Jogador, Guilda, Abates, Mortes, Fama)
+            // Aba Players Total (5 colunas reais do arquivo de totais de players)
             headers += '<th class="clickable-header" data-col="0">JOGADOR</th>' +
                        '<th class="clickable-header" data-col="1">GUILDA</th>' +
                        '<th class="clickable-header" data-col="2">ABATES</th>' +
