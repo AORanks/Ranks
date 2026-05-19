@@ -26,10 +26,8 @@ async function loadData() {
     else if (monthValue.includes("mar")) monthNumber = "3";
     else if (monthValue.includes("apr")) monthNumber = "4";
 
-    // Tratamento de subpasta: se for 'total', a pasta física é 'battlestotal'
+    // Mapeamento exato das tuas pastas do GitHub
     let folderSubName = subCategory === 'total' ? 'battlestotal' : subCategory;
-    
-    // RESOLUÇÃO DO 404: Garante a primeira letra maiúscula das pastas raiz (Guilds / Players)
     const rootFolder = mainCategory === 'guilds' ? 'Guilds' : 'Players';
 
     // Montagem do caminho exato do teu repositório
@@ -37,15 +35,15 @@ async function loadData() {
     const fileName = `${mainCategory} (${monthNumber}).json`;
     const finalPath = `./${folderPath}/${fileName}`;
 
-    console.log(`[AO Ranks] Carregando dados de: ${finalPath}`);
-    $('#total-rows').text('...').attr('title', 'Aguardando resposta do servidor...');
+    console.log(`[AO Ranks] Puxando dados direto de: ${finalPath}`);
+    $('#total-rows').text('...');
     
     allData = [];
     displayedCount = 0;
     currentSortColumn = null;
-    isAscending = false; // Falso inicia a ordenação do maior para o menor (Descendente)
+    isAscending = false; 
     
-    // Limpa e reconstrói o container de scroll de forma limpa
+    // Reconstrói a estrutura da tabela limpando resquícios anteriores
     $('#table-wrapper').html(`
         <div class="scroll-container" id="scroll-box">
             <table id="rankTable">
@@ -63,7 +61,7 @@ async function loadData() {
         const json = await response.json();
         
         if (!json.d || json.d.length === 0) {
-            $('#table-body').html('<tr><td colspan="10" style="text-align:center; padding:30px; color:#f59e0b;">Nenhum registro encontrado para a combinação selecionada.</td></tr>');
+            $('#table-body').html('<tr><td colspan="10" style="text-align:center; padding:30px; color:#f59e0b;">Nenhum registro encontrado para este mês.</td></tr>');
             $('#total-rows').text('0');
             return;
         }
@@ -71,10 +69,11 @@ async function loadData() {
         allData = json.d;
         $('#total-rows').text(allData.length.toLocaleString('pt-BR'));
 
+        // Detecta o número real de colunas do JSON injetado
         const totalColumns = allData[0].length;
         renderHeaders(totalColumns);
 
-        // BUSCA DINÂMICA: Localiza a coluna "ABATES" no cabeçalho gerado
+        // BUSCA DINÂMICA: Acha o índice real da coluna "ABATES" para alinhar a ordenação
         let killColumnIndex = 0;
         $('#table-head th.clickable-header').each(function() {
             if ($(this).text() === 'ABATES') {
@@ -82,14 +81,14 @@ async function loadData() {
             }
         });
 
-        // Aplica a ordenação focada em performance pelos maiores abates
+        // Aplica a ordenação inicial decrescente pela coluna correta de Kills
         currentSortColumn = killColumnIndex;
         sortDataByColumn(killColumnIndex, false);
 
-        // Aplica a classe CSS da seta descendente
+        // Adiciona a seta indicadora visual no cabeçalho
         $(`th[data-col="${killColumnIndex}"]`).addClass('sort-desc');
 
-        // Renderiza o primeiro lote na tela
+        // Renderiza o primeiro lote na tela de forma instantânea
         renderTargetRows();
         setupScrollEvent();
 
@@ -97,10 +96,9 @@ async function loadData() {
         console.error(err);
         $('#total-rows').text('Erro 404');
         $('#table-wrapper').html(`
-            <div style="color: #f59e0b; font-family: monospace; padding: 25px; border: 1px dashed #334155; line-height: 1.6; background: #070a0f;">
-                <strong style="color:#ef4444;">[STATUS 404 - NOT FOUND]:</strong> Arquivo de dados ausente ou corrompido.<br><br>
-                <strong>Caminho Alvo:</strong> <span style="color:#2dd4bf;">${finalPath}</span><br><br>
-                <span>Certifique-se de que a estrutura de pastas no GitHub possui maiúsculas em <b>Guilds</b> ou <b>Players</b>.</span>
+            <div style="color: #f59e0b; font-family: monospace; padding: 25px; border: 1px dashed #334155; background: #070a0f;">
+                <strong>[STATUS 404]:</strong> O arquivo de dados não foi localizado.<br>
+                Caminho: <span style="color:#2dd4bf;">${finalPath}</span>
             </div>
         `);
     }
@@ -110,6 +108,7 @@ function renderHeaders(totalColumns) {
     let headers = '<tr><th class="clickable-header" data-col="rank" style="width: 80px; text-align: center;">RANK</th>';
     
     if (mainCategory === 'guilds') {
+        // Se tem 6 colunas, é a aba normal de Battles (Time, Battle ID, Guilda, Abates, Mortes, Fama)
         if (totalColumns === 6) {
             headers += '<th class="clickable-header" data-col="0">TIME</th>' +
                        '<th class="clickable-header" data-col="1">BATTLE ID</th>' +
@@ -118,12 +117,14 @@ function renderHeaders(totalColumns) {
                        '<th class="clickable-header" data-col="4">MORTES</th>' +
                        '<th class="clickable-header" data-col="5">FAMA</th>';
         } else {
+            // Se NÃO tem 6 colunas, é a tua pasta TOTAL (Estrutura direta: Guilda, Abates, Mortes, Fama)
             headers += '<th class="clickable-header" data-col="0">GUILDA</th>' +
                        '<th class="clickable-header" data-col="1">ABATES</th>' +
                        '<th class="clickable-header" data-col="2">MORTES</th>' +
                        '<th class="clickable-header" data-col="3">FAMA</th>';
         }
     } else {
+        // Se tem 7 colunas, é a aba de Players Battles
         if (totalColumns === 7) {
             headers += '<th class="clickable-header" data-col="0">TIME</th>' +
                        '<th class="clickable-header" data-col="1">BATTLE ID</th>' +
@@ -133,6 +134,7 @@ function renderHeaders(totalColumns) {
                        '<th class="clickable-header" data-col="5">MORTES</th>' +
                        '<th class="clickable-header" data-col="6">FAMA</th>';
         } else {
+            // Se NÃO tem, é a pasta de Players TOTAL (Jogador, Guilda, Abates, Mortes, Fama)
             headers += '<th class="clickable-header" data-col="0">JOGADOR</th>' +
                        '<th class="clickable-header" data-col="1">GUILDA</th>' +
                        '<th class="clickable-header" data-col="2">ABATES</th>' +
@@ -189,19 +191,17 @@ function sortDataByColumn(colIndex, asc) {
         if (valA === null || valA === undefined) valA = asc ? Infinity : -Infinity;
         if (valB === null || valB === undefined) valB = asc ? Infinity : -Infinity;
 
-        // Limpeza profunda: remove pontos e espaços antes de forçar a conversão numérica
+        // Limpa formatações para garantir ordenação numérica pura
         let cleanA = String(valA).replace(/\./g, '').replace(/\s/g, '').trim();
         let cleanB = String(valB).replace(/\./g, '').replace(/\s/g, '').trim();
 
         let numA = Number(cleanA);
         let numB = Number(cleanB);
 
-        // Se a conversão for bem sucedida, executa ordenação matemática real
         if (!isNaN(numA) && !isNaN(numB)) {
             return asc ? numA - numB : numB - numA;
         }
 
-        // Fallback para ordenação alfabética (Nomes de guildas e players)
         if (typeof valA === 'string' && typeof valB === 'string') {
             return asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
         }
@@ -220,7 +220,6 @@ function setupHeaderClickEvents() {
         } else {
             currentSortColumn = colIndex;
             const text = $(this).text();
-            // Colunas competitivas iniciam por padrão do maior para o menor
             isAscending = (text === 'ABATES' || text === 'FAMA' || text === 'MORTES') ? false : true;
         }
 
@@ -237,7 +236,6 @@ function setupHeaderClickEvents() {
     });
 }
 
-// Mecanismo de scroll otimizado usando quadros de animação do navegador (evita lag)
 let isScrolling = false;
 function setupScrollEvent() {
     $('#scroll-box').off('scroll').on('scroll', function() {
@@ -260,17 +258,15 @@ function setupScrollEvent() {
 }
 
 $(document).ready(() => {
-    // Evento dos seletores select
     $('#select-server, #select-month').on('change', loadData);
 
-    // Tratamento seguro do clique das abas horizontais
     $('.tab-btn').off('click').on('click', function() {
         if ($(this).hasClass('active')) return;
 
         const rawMain = $(this).attr('data-main');
         const rawSub = $(this).attr('data-sub');
 
-        if (!rawMain || !rawSub) return; // Proteção contra botões nulos
+        if (!rawMain || !rawSub) return;
 
         $('.tab-btn').removeClass('active');
         $(this).addClass('active');
@@ -281,6 +277,5 @@ $(document).ready(() => {
         loadData();
     });
 
-    // Gatilho inicial da página
     loadData();
 });
