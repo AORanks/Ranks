@@ -38,14 +38,15 @@ body {
     color: #2dd4bf;
 }
 
-/* Barra de Filtros Escura */
+/* Barra de Filtros Unificada */
 .filter-bar {
     display: flex;
+    flex-wrap: wrap;
     gap: 20px;
     background: #070a0f;
     padding: 12px;
     border-radius: 4px;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
     border: 1px solid #1a2333;
 }
 
@@ -70,43 +71,14 @@ body {
     font-size: 0.85rem;
     cursor: pointer;
     border-radius: 4px;
+    outline: none;
 }
 
-/* CONTAINER DE ABAS UNIFICADO (IGUAL AO PRINT) */
-.main-tabs-container {
-    display: flex;
-    width: 100%;
-    border-bottom: 2px solid #1e293b; /* Linha horizontal cinza contínua */
-    background-color: #070a0f;
-    margin-bottom: 20px;
+.filter-group select:focus {
+    border-color: #f59e0b;
 }
 
-.tab-btn {
-    background: transparent;
-    color: #475569; /* Tom cinza apagado para os inativos */
-    border: none;
-    padding: 14px 24px;
-    font-family: monospace;
-    font-weight: bold;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    border-bottom: 3px solid transparent; /* Reserva o espaço do traço */
-}
-
-.tab-btn:hover {
-    color: #94a3b8;
-    background: rgba(255, 255, 255, 0.02);
-}
-
-/* Quando o botão estiver ativo, acende a cor e coloca o traço inferior laranja */
-.tab-btn.active {
-    color: #f59e0b !important; /* Cor Laranja viva */
-    border-bottom: 3px solid #f59e0b !important; /* Traço grosso inferior */
-    background: #0d111a;
-}
-
-/* Customização Forçada do DataTables Dark */
+/* DataTables & Configurações de Linha do Painel */
 .table-responsive {
     background: #0d111a;
     overflow-x: auto;

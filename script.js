@@ -1,9 +1,9 @@
 let dt = null;
-let mainCategory = 'guilds';
-let subCategory = 'battles';
 
 async function loadData() {
     const server = $('#select-server').val().toLowerCase().trim(); 
+    const mainCategory = $('#select-type').val().toLowerCase().trim(); // 'guilds' ou 'players'
+    const subCategory = $('#select-mode').val().toLowerCase().trim(); // 'battles' ou 'battlestotal'
     const monthValue = $('#select-month').val().toLowerCase().trim(); 
     
     let monthNumber = "1";
@@ -16,58 +16,56 @@ async function loadData() {
     const fileName = `${mainCategory} (${monthNumber}).json`;
     const finalPath = `./${folderName}/${fileName}`;
 
-    console.log(`[AO Ranks] Carregando: ${finalPath}`);
+    console.log(`[AO Ranks] Carregando rota: ${finalPath}`);
     $('#total-rows').text('Carregando...');
 
-    // 1. DESTRUIÇÃO TOTAL E AGRESSIVA DO DATATABLES ANTES DE QUALQUER FETCH
+    // 1. DESTRUIÇÃO PREVENTIVA DA INSTÂNCIA ANTERIOR DO DATATABLES
     if (dt) {
         dt.clear().destroy();
         dt = null;
     }
     
-    // Força a remoção completa de qualquer resíduo de colunas e dados velhos
+    // Raspa completamente a tabela física para apagar as larguras e dados antigos de cache
     $('#rankTable').empty(); 
-    
-    // Recria a estrutura mínima limpa para o DataTables não se perder
     $('#rankTable').html('<thead id="table-head"></thead><tbody id="tableData"></tbody>');
 
     try {
         const response = await fetch(finalPath);
         
         if (!response.ok) {
-            throw new Error(`Código ${response.status}: Não achou "${fileName}" em "${folderName}".`);
+            throw new Error(`Código ${response.status}: Não localizou "${fileName}" na pasta "${folderName}".`);
         }
         
         const json = await response.json();
         
         if (!json.d || json.d.length === 0) {
-            throw new Error("A lista de dados ('d') está vazia.");
+            throw new Error("O campo de dados ('d') do JSON está vazio.");
         }
 
-        renderTable(json.d);
+        renderTable(json.d, mainCategory);
         
     } catch (err) {
         console.error(err);
         $('#total-rows').text('Erro');
         $('#top-name').text('---');
         
-        $('#table-head').html(`<tr><th>ERRO DE AMBIENTE / ARQUIVO NÃO LOCALIZADO</th></tr>`);
+        $('#table-head').html(`<tr><th>ERRO DE AMBIENTE / ARQUIVO NÃO ENCONTRADO</th></tr>`);
         $('#tableData').html(`
             <tr>
                 <td style="color:#f59e0b; padding:25px; font-family:monospace; white-space:normal; line-height:1.6;">
-                    <strong>Caminho:</strong> ${finalPath}<br><br>
-                    <strong>Aviso:</strong> Se o erro for 'Failed to fetch', lembre-se de rodar o projeto através do <strong>Live Server</strong> no VS Code. O navegador bloqueia requisições locais se abrir o HTML direto com dois cliques.
+                    <strong>Tentativa no arquivo:</strong> ${finalPath}<br><br>
+                    <strong>Nota:</strong> Certifique-se de carregar este projeto via <strong>Live Server</strong> (VS Code) para permitir requisições de arquivos locais.
                 </td>
             </tr>
         `);
     }
 }
 
-function renderTable(data) {
+function renderTable(data, mainCategory) {
     const sampleRow = data[0];
     const totalColumns = sampleRow.length;
 
-    // 2. DETECTA QUANTAS COLUNAS VIERAM E MONTA O CABEÇALHO EXATO
+    // 2. MONTAGEM DO CABEÇALHO BASEADO NO MODELO DETECTADO DO JSON
     let headersHtml = '<tr><th>RANK</th>';
     if (mainCategory === 'guilds') {
         if (totalColumns === 6) { 
@@ -85,7 +83,7 @@ function renderTable(data) {
     headersHtml += '</tr>';
     $('#table-head').html(headersHtml);
 
-    // 3. PROCESSAMENTO EM BUFFER DE STRING (Roda em milissegundos sem congelar a CPU)
+    // 3. PROCESSAMENTO DE STRINGS EM LOOP ULTRA RÁPIDO FOR
     let rowsHtml = '';
     const totalRows = data.length;
     
@@ -107,15 +105,14 @@ function renderTable(data) {
     }
     $('#tableData').html(rowsHtml);
 
-    // 4. CALCULA O ÍNDICE CORRETO DE ORDENAÇÃO DE ACORDO COM O MODELO DO JSON
+    // 4. MAPEAMENTO AUTOMÁTICO DO GATILHO DE ORDENAÇÃO DE ABATES (KILLS)
     let sortColumnIndex = 1; 
     if (mainCategory === 'guilds' && totalColumns === 6) sortColumnIndex = 4;
     if (mainCategory === 'players' && totalColumns === 7) sortColumnIndex = 5;
     if (mainCategory === 'players' && totalColumns === 5) sortColumnIndex = 3;
 
-    // 5. INICIALIZAÇÃO BLINDADA COM TIME-OUT PARA EVITAR CORRIDA DE MEMÓRIA
+    // 5. INICIALIZAÇÃO BLINDADA COM DELAY SEGURO DE SEGMENTO DE MEMÓRIA
     setTimeout(() => {
-        // Garante que o plugin não tente duplicar a inicialização sob nenhuma circunstância
         if ($.fn.DataTable.isDataTable('#rankTable')) {
             $('#rankTable').DataTable().destroy();
         }
@@ -124,8 +121,8 @@ function renderTable(data) {
             responsive: true,
             order: [[sortColumnIndex, "desc"]],
             pageLength: 50,
-            deferRender: true, // Renderiza as linhas sob demanda apenas ao mudar de página
-            destroy: true,     // Permite re-inicialização forçada com novas colunas
+            deferRender: true, // Paginação sob demanda (não engasga navegadores)
+            destroy: true,
             language: { 
                 search: "PROCURAR:",
                 lengthMenu: "MOSTRAR _MENU_",
@@ -135,7 +132,7 @@ function renderTable(data) {
         });
     }, 20);
 
-    // Atualiza os painéis superiores de metadados
+    // Atualiza metadados do topo
     if (sampleRow) {
         let nameIndex = (totalColumns > 5) ? 2 : 0;
         $('#top-name').text(sampleRow[nameIndex] || sampleRow[0]);
@@ -144,24 +141,11 @@ function renderTable(data) {
 }
 
 $(document).ready(() => {
-    // Escuta seletores normais
-    $('#select-server, #select-month').on('change', () => {
+    // Escuta qualquer mudança em qualquer um dos 4 seletores e executa na hora
+    $('#select-server, #select-type, #select-mode, #select-month').on('change', () => {
         loadData();
     });
 
-    // Escuta cliques nas abas planas de um nível só
-    $('.tab-btn').on('click', function() {
-        if ($(this).hasClass('active')) return; // Evita cliques duplicados na mesma aba ativa
-        
-        $('.tab-btn').removeClass('active');
-        $(this).addClass('active');
-
-        mainCategory = $(this).attr('data-main');
-        subCategory = $(this).attr('data-sub');
-
-        loadData();
-    });
-
-    // Dispara a primeira execução ao abrir o site
+    // Primeira carga ao carregar o DOM
     loadData();
 });
