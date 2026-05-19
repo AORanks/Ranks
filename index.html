@@ -12,7 +12,7 @@
         <header class="terminal-header">
             <h1>AO RANKS // DATABASE</h1>
             <div class="top-meta-cards">
-                <span>REGISTROS: <strong id="total-rows">0</strong></span>
+                <span>REGISTROS: <strong id="total-rows">...</strong></span>
             </div>
         </header>
 
@@ -37,14 +37,11 @@
             </div>
         </div>
 
-        <div class="main-tabs-container">
-            <button class="tab-btn active" data-main="guilds">GUILDS</button>
-            <button class="tab-btn" data-main="players">PLAYERS</button>
-        </div>
-
-        <div class="sub-tabs-container">
-            <button class="sub-tab-btn active" data-sub="battles">BATTLES</button>
-            <button class="sub-tab-btn" data-sub="total">TOTAL</button>
+        <div class="tabs-container">
+            <button class="tab-btn active" data-main="guilds" data-sub="battles">GUILDS BATTLES</button>
+            <button class="tab-btn" data-main="guilds" data-sub="total">GUILDS TOTAL</button>
+            <button class="tab-btn" data-main="players" data-sub="battles">PLAYERS BATTLES</button>
+            <button class="tab-btn" data-main="players" data-sub="total">PLAYERS TOTAL</button>
         </div>
 
         <div class="table-responsive" id="table-wrapper"></div>

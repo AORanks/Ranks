@@ -1,12 +1,12 @@
 let allData = [];       // Guarda todo o array de dados em memória
 let displayedCount = 0; // Controla quantos registros já foram renderizados
-const CHUNK_SIZE = 100; // Quantidade de linhas carregadas por bloco no scroll
+const CHUNK_SIZE = 150; // Quantidade otimizada de linhas por bloco no scroll
 
 // Estado inicial correspondente ao primeiro botão ativo
 let mainCategory = 'guilds'; 
 let subCategory = 'battles'; 
 
-// Estado de ordenação
+// Estado de ordenação global
 let currentSortColumn = null; 
 let isAscending = false;      
 
@@ -14,7 +14,7 @@ async function loadData() {
     const serverElement = $('#select-server');
     const monthElement = $('#select-month');
 
-    // PROTEÇÃO: Impede o erro de "toLowerCase of undefined" caso o DOM ainda não exista
+    // PROTEÇÃO: Impede falhas caso o DOM ainda esteja carregando
     if (!serverElement.length || !monthElement.length) return;
 
     const server = (serverElement.val() || 'americas').toLowerCase().trim();
@@ -26,29 +26,26 @@ async function loadData() {
     else if (monthValue.includes("mar")) monthNumber = "3";
     else if (monthValue.includes("apr")) monthNumber = "4";
 
-    // Mapeamento das pastas do teu GitHub: se subCategory for 'total', a subpasta é 'battlestotal'
-    let folderSubName = subCategory;
-    if (subCategory === 'total') {
-        folderSubName = 'battlestotal';
-    }
-
-    // RESOLUÇÃO DO 404: Força a primeira letra maiúscula para as pastas raiz (Guilds / Players)
+    // Tratamento de subpasta: se for 'total', a pasta física é 'battlestotal'
+    let folderSubName = subCategory === 'total' ? 'battlestotal' : subCategory;
+    
+    // RESOLUÇÃO DO 404: Garante a primeira letra maiúscula das pastas raiz (Guilds / Players)
     const rootFolder = mainCategory === 'guilds' ? 'Guilds' : 'Players';
 
-    // Montagem exata do caminho conforme o teu repositório
+    // Montagem do caminho exato do teu repositório
     const folderPath = `${rootFolder}/${server}${mainCategory}${folderSubName}`;
     const fileName = `${mainCategory} (${monthNumber}).json`;
     const finalPath = `./${folderPath}/${fileName}`;
 
-    console.log(`[AO Ranks] Efetuando requisição em: ${finalPath}`);
-    $('#total-rows').text('...');
+    console.log(`[AO Ranks] Carregando dados de: ${finalPath}`);
+    $('#total-rows').text('...').attr('title', 'Aguardando resposta do servidor...');
     
     allData = [];
     displayedCount = 0;
     currentSortColumn = null;
-    isAscending = false; // Começa como falso para ordenar do maior para o menor (Descendente)
+    isAscending = false; // Falso inicia a ordenação do maior para o menor (Descendente)
     
-    // Injeta a estrutura de rolagem de forma limpa na DOM
+    // Limpa e reconstrói o container de scroll de forma limpa
     $('#table-wrapper').html(`
         <div class="scroll-container" id="scroll-box">
             <table id="rankTable">
@@ -66,7 +63,7 @@ async function loadData() {
         const json = await response.json();
         
         if (!json.d || json.d.length === 0) {
-            $('#table-body').html('<tr><td colspan="10" style="text-align:center; padding:20px; color:#f59e0b;">Nenhum registro encontrado para este mês.</td></tr>');
+            $('#table-body').html('<tr><td colspan="10" style="text-align:center; padding:30px; color:#f59e0b;">Nenhum registro encontrado para a combinação selecionada.</td></tr>');
             $('#total-rows').text('0');
             return;
         }
@@ -77,7 +74,7 @@ async function loadData() {
         const totalColumns = allData[0].length;
         renderHeaders(totalColumns);
 
-        // DINÂMICO: Procura qual th tem o texto "ABATES" para saber o índice correto da coluna
+        // BUSCA DINÂMICA: Localiza a coluna "ABATES" no cabeçalho gerado
         let killColumnIndex = 0;
         $('#table-head th.clickable-header').each(function() {
             if ($(this).text() === 'ABATES') {
@@ -85,24 +82,25 @@ async function loadData() {
             }
         });
 
-        // Força a ordenação inicial por esta coluna encontrada (Maior número de Kills)
+        // Aplica a ordenação focada em performance pelos maiores abates
         currentSortColumn = killColumnIndex;
         sortDataByColumn(killColumnIndex, false);
 
-        // Adiciona o indicador visual (setinha para baixo) na coluna de abates
+        // Aplica a classe CSS da seta descendente
         $(`th[data-col="${killColumnIndex}"]`).addClass('sort-desc');
 
+        // Renderiza o primeiro lote na tela
         renderTargetRows();
         setupScrollEvent();
 
     } catch (err) {
         console.error(err);
-        $('#total-rows').text('Error 404');
+        $('#total-rows').text('Erro 404');
         $('#table-wrapper').html(`
-            <div style="color: #f59e0b; font-family: monospace; padding: 20px; border: 1px dashed #334155; line-height: 1.5; background: #070a0f;">
-                <strong>[STATUS 404 - NOT FOUND]:</strong> O arquivo de dados não foi localizado.<br><br>
-                <strong>Caminho Gerado:</strong> <span style="color:#2dd4bf;">${finalPath}</span><br><br>
-                <span>Verifica se as pastas no GitHub começam com maiúsculas (<b>Guilds</b> / <b>Players</b>) e se o JSON está lá dentro.</span>
+            <div style="color: #f59e0b; font-family: monospace; padding: 25px; border: 1px dashed #334155; line-height: 1.6; background: #070a0f;">
+                <strong style="color:#ef4444;">[STATUS 404 - NOT FOUND]:</strong> Arquivo de dados ausente ou corrompido.<br><br>
+                <strong>Caminho Alvo:</strong> <span style="color:#2dd4bf;">${finalPath}</span><br><br>
+                <span>Certifique-se de que a estrutura de pastas no GitHub possui maiúsculas em <b>Guilds</b> ou <b>Players</b>.</span>
             </div>
         `);
     }
@@ -149,25 +147,30 @@ function renderHeaders(totalColumns) {
 
 function renderTargetRows() {
     const nextChunk = allData.slice(displayedCount, displayedCount + CHUNK_SIZE);
+    if (nextChunk.length === 0) return;
+
     let rowsHtml = '';
+    const isRankCol = currentSortColumn === 'rank';
 
     for (let i = 0; i < nextChunk.length; i++) {
-        const globalRank = isAscending && currentSortColumn !== 'rank'
+        const globalRank = isAscending && !isRankCol
             ? allData.length - (displayedCount + i)
             : displayedCount + i + 1;
 
-        let cells = `<td style="color: #f59e0b; font-weight: bold; text-align: center;">#${globalRank}</td>`;
+        rowsHtml += `<tr><td style="color: #f59e0b; font-weight: bold; text-align: center;">#${globalRank}</td>`;
         
-        for (let j = 0; j < nextChunk[i].length; j++) {
-            let val = nextChunk[i][j];
-            let cleanVal = (val !== null && val !== undefined) ? val : '-';
-            
-            if (typeof val === 'number' && val > 999) {
-                cleanVal = val.toLocaleString('pt-BR');
+        const rowData = nextChunk[i];
+        for (let j = 0; j < rowData.length; j++) {
+            let val = rowData[j];
+            if (val === null || val === undefined) {
+                rowsHtml += '<td>-</td>';
+            } else if (typeof val === 'number' && val > 999) {
+                rowsHtml += `<td>${val.toLocaleString('pt-BR')}</td>`;
+            } else {
+                rowsHtml += `<td>${val}</td>`;
             }
-            cells += `<td>${cleanVal}</td>`;
         }
-        rowsHtml += `<tr>${cells}</tr>`;
+        rowsHtml += '</tr>';
     }
 
     $('#table-body').append(rowsHtml);
@@ -186,19 +189,19 @@ function sortDataByColumn(colIndex, asc) {
         if (valA === null || valA === undefined) valA = asc ? Infinity : -Infinity;
         if (valB === null || valB === undefined) valB = asc ? Infinity : -Infinity;
 
-        // PROTEÇÃO EXTRA DE TIPOS: Limpa pontos, espaços e converte para número puro
+        // Limpeza profunda: remove pontos e espaços antes de forçar a conversão numérica
         let cleanA = String(valA).replace(/\./g, '').replace(/\s/g, '').trim();
         let cleanB = String(valB).replace(/\./g, '').replace(/\s/g, '').trim();
 
         let numA = Number(cleanA);
         let numB = Number(cleanB);
 
-        // Se ambos conseguirem ser convertidos para números válidos, faz a ordenação matemática real
+        // Se a conversão for bem sucedida, executa ordenação matemática real
         if (!isNaN(numA) && !isNaN(numB)) {
             return asc ? numA - numB : numB - numA;
         }
 
-        // Se for texto puro (Nomes), mantém a ordenação alfabética padrão
+        // Fallback para ordenação alfabética (Nomes de guildas e players)
         if (typeof valA === 'string' && typeof valB === 'string') {
             return asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
         }
@@ -217,6 +220,7 @@ function setupHeaderClickEvents() {
         } else {
             currentSortColumn = colIndex;
             const text = $(this).text();
+            // Colunas competitivas iniciam por padrão do maior para o menor
             isAscending = (text === 'ABATES' || text === 'FAMA' || text === 'MORTES') ? false : true;
         }
 
@@ -233,33 +237,40 @@ function setupHeaderClickEvents() {
     });
 }
 
+// Mecanismo de scroll otimizado usando quadros de animação do navegador (evita lag)
+let isScrolling = false;
 function setupScrollEvent() {
     $('#scroll-box').off('scroll').on('scroll', function() {
-        const scrollTop = $(this).scrollTop();
-        const innerHeight = $(this).innerHeight();
-        const scrollHeight = $(this).prop('scrollHeight');
+        if (isScrolling) return;
 
-        if (scrollTop + innerHeight >= scrollHeight - 50) {
-            if (displayedCount < allData.length) {
-                renderTargetRows();
+        isScrolling = true;
+        requestAnimationFrame(() => {
+            const scrollTop = $(this).scrollTop();
+            const innerHeight = $(this).innerHeight();
+            const scrollHeight = $(this).prop('scrollHeight');
+
+            if (scrollTop + innerHeight >= scrollHeight - 100) {
+                if (displayedCount < allData.length) {
+                    renderTargetRows();
+                }
             }
-        }
+            isScrolling = false;
+        });
     });
 }
 
 $(document).ready(() => {
-    // Evento de mudança nos filtros select
+    // Evento dos seletores select
     $('#select-server, #select-month').on('change', loadData);
 
-    // BLINDAGEM DO CLICK DAS ABAS: Evita ler propriedades nulas de undefined
+    // Tratamento seguro do clique das abas horizontais
     $('.tab-btn').off('click').on('click', function() {
         if ($(this).hasClass('active')) return;
 
         const rawMain = $(this).attr('data-main');
         const rawSub = $(this).attr('data-sub');
 
-        // Se por acaso faltar algum atributo no HTML, ignora para não crashar
-        if (!rawMain || !rawSub) return;
+        if (!rawMain || !rawSub) return; // Proteção contra botões nulos
 
         $('.tab-btn').removeClass('active');
         $(this).addClass('active');
@@ -270,6 +281,6 @@ $(document).ready(() => {
         loadData();
     });
 
-    // Execução inicial automática ao abrir a página
+    // Gatilho inicial da página
     loadData();
 });
