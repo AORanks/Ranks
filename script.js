@@ -5,17 +5,18 @@ let subCategory = 'battles';
 const CHUNK_SIZE = 100; // Tamanho de cada bloco de carregamento
 
 // Controle de Ordenação
-let currentSortColumn = null; // Índice da coluna atualmente ordenada
-let isAscending = false;      // Alternador de direção (Padrão: Descendente para Kills/Fame)
+let currentSortColumn = null; 
+let isAscending = false;      
 
 async function loadData() {
     const serverElement = $('#select-server');
     const monthElement = $('#select-month');
 
+    // Proteção essencial: Se os seletores não existirem no DOM, interrompe para não dar erro de undefined
     if (!serverElement.length || !monthElement.length) return;
 
-    const server = serverElement.val().toLowerCase().trim();
-    const monthValue = monthElement.val().toLowerCase().trim();
+    const server = (serverElement.val() || 'americas').toLowerCase().trim();
+    const monthValue = (monthElement.val() || 'january').toLowerCase().trim();
     
     let monthNumber = "1";
     if (monthValue.includes("jan")) monthNumber = "1";
@@ -61,26 +62,29 @@ async function loadData() {
         allData = json.d;
         $('#total-rows').text(allData.length.toLocaleString('pt-BR'));
 
-        // Renderiza cabeçalhos e define qual coluna ordena automaticamente no início
+        // 1. Gera a estrutura de cabeçalho
         const totalColumns = allData[0].length;
         renderHeaders(totalColumns);
 
-        // Define a ordenação padrão inicial (Kills/Abates) dependendo da estrutura do arquivo
-        let initialSortIndex = 0; // Se não achar colunas, ordena pela primeira disponível
-        if (mainCategory === 'guilds' && totalColumns === 6) initialSortIndex = 3; // Coluna GUILDA/ABATES ajuste
-        if (mainCategory === 'guilds' && totalColumns === 4) initialSortIndex = 1;
-        if (mainCategory === 'players' && totalColumns === 7) initialSortIndex = 4;
-        if (mainCategory === 'players' && totalColumns === 5) initialSortIndex = 2;
+        // 2. Define coluna padrão inicial de ordenação (Coluna de ABATES)
+        let initialSortIndex = 0; 
+        if (mainCategory === 'guilds' && totalColumns === 6) initialSortIndex = 3; // ABATES
+        if (mainCategory === 'guilds' && totalColumns === 4) initialSortIndex = 1; // ABATES (Sem ID/Time)
+        if (mainCategory === 'players' && totalColumns === 7) initialSortIndex = 4; // ABATES Player
+        if (mainCategory === 'players' && totalColumns === 5) initialSortIndex = 2; // ABATES Player (Sem ID/Time)
 
-        // Executa a primeira ordenação inicial (decrescente de abates) de forma silenciosa
+        // Aplica ordenação decrescente inicial
+        currentSortColumn = initialSortIndex;
         sortDataByColumn(initialSortIndex, false);
 
-        // Injeta os primeiros 100
+        // Adiciona a classe visual da setinha na coluna padrão
+        $(`th[data-col="${initialSortIndex}"]`).addClass('sort-desc');
+
+        // Injeta os primeiros 100 registros
         renderTargetRows();
 
-        // Ativa listeners de Scroll e Clique de Cabeçalho
+        // Ativa os listeners de rolagem e clique
         setupScrollEvent();
-        setupHeaderClickEvents();
 
     } catch (err) {
         console.error(err);
@@ -95,32 +99,56 @@ async function loadData() {
 }
 
 function renderHeaders(totalColumns) {
-    // data-col define o índice do array correspondente àquela coluna para o motor de sort
-    let headers = '<tr><th class="no-sort">RANK</th>';
+    let headers = '<tr><th class="clickable-header" data-col="rank" style="width: 80px; text-align: center;">RANK</th>';
+    
     if (mainCategory === 'guilds') {
         if (totalColumns === 6) {
-            headers += '<th data-col="0">TIME</th><th data-col="1">BATTLE ID</th><th data-col="2">GUILDA</th><th data-col="3">ABATES</th><th data-col="4">MORTES</th><th data-col="5">FAMA</th>';
+            headers += '<th class="clickable-header" data-col="0">TIME</th>' +
+                       '<th class="clickable-header" data-col="1">BATTLE ID</th>' +
+                       '<th class="clickable-header" data-col="2">GUILDA</th>' +
+                       '<th class="clickable-header" data-col="3">ABATES</th>' +
+                       '<th class="clickable-header" data-col="4">MORTES</th>' +
+                       '<th class="clickable-header" data-col="5">FAMA</th>';
         } else {
-            headers += '<th data-col="0">GUILDA</th><th data-col="1">ABATES</th><th data-col="2">MORTES</th><th data-col="3">FAMA</th>';
+            headers += '<th class="clickable-header" data-col="0">GUILDA</th>' +
+                       '<th class="clickable-header" data-col="1">ABATES</th>' +
+                       '<th class="clickable-header" data-col="2">MORTES</th>' +
+                       '<th class="clickable-header" data-col="3">FAMA</th>';
         }
     } else {
         if (totalColumns === 7) {
-            headers += '<th data-col="0">TIME</th><th data-col="1">BATTLE ID</th><th data-col="2">JOGADOR</th><th data-col="3">GUILDA</th><th data-col="4">ABATES</th><th data-col="5">MORTES</th><th data-col="6">FAMA</th>';
+            headers += '<th class="clickable-header" data-col="0">TIME</th>' +
+                       '<th class="clickable-header" data-col="1">BATTLE ID</th>' +
+                       '<th class="clickable-header" data-col="2">JOGADOR</th>' +
+                       '<th class="clickable-header" data-col="3">GUILDA</th>' +
+                       '<th class="clickable-header" data-col="4">ABATES</th>' +
+                       '<th class="clickable-header" data-col="5">MORTES</th>' +
+                       '<th class="clickable-header" data-col="6">FAMA</th>';
         } else {
-            headers += '<th data-col="0">JOGADOR</th><th data-col="1">GUILDA</th><th data-col="2">ABATES</th><th data-col="3">MORTES</th><th data-col="4">FAMA</th>';
+            headers += '<th class="clickable-header" data-col="0">JOGADOR</th>' +
+                       '<th class="clickable-header" data-col="1">GUILDA</th>' +
+                       '<th class="clickable-header" data-col="2">ABATES</th>' +
+                       '<th class="clickable-header" data-col="3">MORTES</th>' +
+                       '<th class="clickable-header" data-col="4">FAMA</th>';
         }
     }
     headers += '</tr>';
     $('#table-head').html(headers);
+    
+    // Liga o evento de clique diretamente após renderizar os cabeçalhos
+    setupHeaderClickEvents();
 }
 
-// Faz o fatiamento e renderização do bloco atual
 function renderTargetRows() {
     const nextChunk = allData.slice(displayedCount, displayedCount + CHUNK_SIZE);
     let rowsHtml = '';
 
     for (let i = 0; i < nextChunk.length; i++) {
-        const globalRank = displayedCount + i + 1;
+        // Se a tabela estiver invertida (Ascendente), calcula o Rank de trás para frente
+        const globalRank = isAscending && currentSortColumn !== 'rank'
+            ? allData.length - (displayedCount + i)
+            : displayedCount + i + 1;
+
         let cells = `<td style="color: #f59e0b; font-weight: bold; text-align: center;">#${globalRank}</td>`;
         
         for (let j = 0; j < nextChunk[i].length; j++) {
@@ -139,47 +167,53 @@ function renderTargetRows() {
     displayedCount += nextChunk.length;
 }
 
-// Algoritmo nativo de ordenação ultraveloz rodando direto na memória
 function sortDataByColumn(colIndex, asc) {
+    if (colIndex === 'rank') {
+        // Ordenação padrão pelo índice natural do arquivo original
+        if (asc) allData.reverse(); 
+        return;
+    }
+
     allData.sort((a, b) => {
         let valA = a[colIndex];
         let valB = b[colIndex];
 
-        // Se for string, padroniza caixa baixa para comparação alfabética correta
-        if (typeof valA === 'string') valA = valA.toLowerCase();
-        if (typeof valB === 'string') valB = valB.toLowerCase();
+        if (valA === null || valA === undefined) valA = asc ? Infinity : -Infinity;
+        if (valB === null || valB === undefined) valB = asc ? Infinity : -Infinity;
 
-        if (valA < valB) return asc ? -1 : 1;
-        if (valA > valB) return asc ? 1 : -1;
-        return 0;
+        if (typeof valA === 'string' && typeof valB === 'string') {
+            return asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+
+        return asc ? valA - valB : valB - valA;
     });
 }
 
 function setupHeaderClickEvents() {
-    // Delegação de clique apenas para os cabeçalhos que possuem o atributo data-col
-    $('#table-head').on('click', 'th:not(.no-sort)', function() {
-        const colIndex = parseInt($(this).attr('data-col'));
+    $('.clickable-header').off('click').on('click', function() {
+        const colAttr = $(this).attr('data-col');
+        const isRank = colAttr === 'rank';
+        const colIndex = isRank ? 'rank' : parseInt(colAttr);
 
-        // Se clicou na mesma coluna que já estava ordenada, inverte o sentido (Asc / Desc)
         if (currentSortColumn === colIndex) {
             isAscending = !isAscending;
         } else {
             currentSortColumn = colIndex;
-            isAscending = true; // Primeira batida ordena ascendente por padrão
+            // Abates, Mortes e Fama começam como decrescentes (maior valor primeiro)
+            const text = $(this).text();
+            isAscending = (text === 'ABATES' || text === 'FAMA' || text === 'MORTES') ? false : true;
         }
 
-        // Atualização visual das setinhas nos cabeçalhos
-        $('th').removeClass('sort-asc sort-desc');
+        $('.clickable-header').removeClass('sort-asc sort-desc');
         $(this).addClass(isAscending ? 'sort-asc' : 'sort-desc');
 
-        // Executa a ordenação na memória, reseta o ponteiro visual e limpa a tabela
+        // Executa a ordenação e limpa a visualização para re-renderizar
         sortDataByColumn(colIndex, isAscending);
         
         displayedCount = 0;
         $('#table-body').empty();
-        $('#scroll-box').scrollTop(0); // Volta o scroll pro topo
+        $('#scroll-box').scrollTop(0); 
 
-        // Renderiza os novos primeiros 100 registros com a nova ordem aplicada
         renderTargetRows();
     });
 }
@@ -190,7 +224,7 @@ function setupScrollEvent() {
         const innerHeight = $(this).innerHeight();
         const scrollHeight = $(this).prop('scrollHeight');
 
-        if (scrollTop + innerHeight >= scrollHeight - 40) {
+        if (scrollTop + innerHeight >= scrollHeight - 50) {
             if (displayedCount < allData.length) {
                 renderTargetRows();
             }
