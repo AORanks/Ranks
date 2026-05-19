@@ -31,7 +31,7 @@
             </div>
             
             <div class="filter-group">
-                <label for="select-month">MÊS:</label>
+                <label for="select-month">MÊS DE REFERÊNCIA:</label>
                 <select id="select-month">
                     <option value="january">JANEIRO (1)</option>
                     <option value="february">FEVEREIRO (2)</option>
@@ -42,13 +42,10 @@
         </div>
 
         <div class="main-tabs-container">
-            <button class="main-tab-btn active" data-main="guilds">GUILDS</button>
-            <button class="main-tab-btn" data-main="players">PLAYERS</button>
-        </div>
-
-        <div class="sub-tabs-container">
-            <button class="sub-tab-btn active" data-sub="battles" id="btn-sub-battles">GUILDS BATTLES</button>
-            <button class="sub-tab-btn" data-sub="battlestotal" id="btn-sub-total">GUILDS TOTAL</button>
+            <button class="tab-btn active" data-main="guilds" data-sub="battles">GUILDS BATTLES</button>
+            <button class="tab-btn" data-main="guilds" data-sub="battlestotal">GUILDS TOTAL</button>
+            <button class="tab-btn" data-main="players" data-sub="battles">PLAYERS BATTLES</button>
+            <button class="tab-btn" data-main="players" data-sub="battlestotal">PLAYERS TOTAL</button>
         </div>
 
         <div class="table-responsive">

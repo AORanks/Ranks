@@ -1,90 +1,85 @@
 let dt = null;
-let mainCategory = 'guilds'; // 'guilds' ou 'players'
-let subCategory = 'battles';  // 'battles' ou 'battlestotal'
+let mainCategory = 'guilds';
+let subCategory = 'battles';
 
 async function loadData() {
-    const server = $('#select-server').val().toLowerCase().trim(); // ex: 'americas'
-    const monthValue = $('#select-month').val().toLowerCase().trim(); // ex: 'january'
+    const server = $('#select-server').val().toLowerCase().trim(); 
+    const monthValue = $('#select-month').val().toLowerCase().trim(); 
     
-    // Mapeamento numérico exato do mês para bater com o nome do arquivo: guilds (1).json
     let monthNumber = "1";
     if (monthValue.includes("jan")) monthNumber = "1";
     else if (monthValue.includes("feb")) monthNumber = "2";
     else if (monthValue.includes("mar")) monthNumber = "3";
     else if (monthValue.includes("apr")) monthNumber = "4";
 
-    // 1. Nome exato da pasta (ex: americasguildsbattles)
+    // Montagem exata baseada na sua árvore de pastas real
     const folderName = `${server}${mainCategory}${subCategory}`;
-    
-    // 2. Nome exato do arquivo (ex: guilds (1).json)
     const fileName = `${mainCategory} (${monthNumber}).json`;
-    
-    // =========================================================================
-    // ESCOLHA SEU MODO DE HOSPEDAGEM AQUI (Descomente o que for usar e comente o outro)
-    // =========================================================================
-    
-    // MODO A: Se você estiver testando LOCALMENTE ou no GitHub Pages direto:
     const finalPath = `./${folderName}/${fileName}`;
-    
-    // MODO B: Se for puxar via JSDELIVR (Insira seu usuário e repositório do GitHub aqui):
-    // const USERNAME = "SeuUsuarioDoGithub";
-    // const REPO = "NomeDoSeuRepositorio";
-    // const finalPath = `https://cdn.jsdelivr.net/gh/${USERNAME}/${REPO}/main/${folderName}/${fileName}`;
-    
-    // =========================================================================
 
-    console.log(`Buscando dados em: ${finalPath}`);
+    console.log(`Tentando carregar: ${finalPath}`);
     $('#total-rows').text('Carregando...');
 
     try {
         const response = await fetch(finalPath);
         
         if (!response.ok) {
-            throw new Error(`Código ${response.status}: Arquivo "${fileName}" não encontrado na pasta "${folderName}".`);
+            throw new Error(`Código ${response.status}: Não achou "${fileName}" em "${folderName}".`);
         }
         
         const json = await response.json();
         
         if (!json.d || json.d.length === 0) {
-            throw new Error("O arquivo JSON foi lido, mas a lista de dados ('d') está vazia.");
+            throw new Error("A lista de dados ('d') está vazia.");
         }
 
-        render(json.d);
+        renderTable(json.d);
         
     } catch (err) {
         console.error(err);
         $('#total-rows').text('Erro');
         $('#top-name').text('---');
         
-        // Exibe o erro visualmente na tabela para você saber exatamente o caminho que falhou
-        $('#table-head').html(`<tr><th style="color:#ff6b6b;">ERRO DE CONEXÃO / ARQUIVO NÃO LOCALIZADO</th></tr>`);
+        if (dt) {
+            dt.destroy();
+            dt = null;
+        }
+        
+        $('#table-head').html(`<tr><th>ERRO DE AMBIENTE / ARQUIVO NÃO ENCONTRADO</th></tr>`);
         $('#tableData').html(`
             <tr>
-                <td style="color:#ecc94b; padding:20px; font-family:monospace; white-space: normal;">
-                    <strong>Tentativa de busca no caminho:</strong><br>${finalPath}<br><br>
-                    <strong>Detalhes do Erro:</strong> ${err.message}
+                <td style="color:#f59e0b; padding:25px; font-family:monospace; white-space:normal; line-height:1.6;">
+                    <strong>Caminho Solicitado:</strong> ${finalPath}<br><br>
+                    <strong>Dica de Desenvolvedor:</strong> Se aparecer 'Failed to fetch', você não pode abrir o HTML clicando duas vezes direto da pasta. Use a extensão <strong>Live Server</strong> do VS Code ou suba o código no GitHub Pages para o navegador permitir a leitura dos arquivos JSON locais!
                 </td>
             </tr>
         `);
     }
 }
 
-function render(data) {
+function renderTable(data) {
+    // Destrói tabela antiga se ela existir para evitar conflitos de memória
     if (dt) {
         dt.destroy();
+        $('#table-head').empty();
         $('#tableData').empty();
+        dt = null;
     }
     
-    // Configuração dos Cabeçalhos Dinâmicos conforme a aba
+    // DETECÇÃO AUTOMÁTICA DE COLUNAS: Lê o primeiro registro do JSON para ver o tamanho real
+    const sampleRow = data[0];
+    const totalColumns = sampleRow.length;
+
     let headersHtml = '<tr><th>RANK</th>';
+    
     if (mainCategory === 'guilds') {
-        if (subCategory === 'battles') {
+        if (totalColumns === 6) { // Se tiver 6 colunas de dados
             headersHtml += `<th>TIME</th><th>BATTLE ID</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>`;
-        } else {
+        } else { // Caso seja TOTAL (4 colunas de dados)
             headersHtml += `<th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>`;
         }
-    } else { 
-        if (subCategory === 'battles') {
+    } else { // Caso seja PLAYERS
+        if (totalColumns === 7) {
             headersHtml += `<th>TIME</th><th>BATTLE ID</th><th>JOGADOR</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>`;
         } else {
             headersHtml += `<th>JOGADOR</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>`;
@@ -93,33 +88,35 @@ function render(data) {
     headersHtml += '</tr>';
     $('#table-head').html(headersHtml);
 
-    // Renderização das linhas do array compacto
-    let rows = '';
-    data.forEach((row, i) => {
-        let cells = `<td class="font-bold text-center">#${i+1}</td>`;
+    // Monta o corpo da tabela
+    let rowsHtml = '';
+    data.forEach((row, rowIndex) => {
+        let cells = `<td class="font-bold text-center" style="color: #f59e0b;">#${rowIndex + 1}</td>`;
         
-        row.forEach(value => {
-            let displayValue = (value !== null && value !== undefined) ? value : '-';
-            if (typeof value === 'number' && !isNaN(value) && value > 100) {
-                displayValue = value.toLocaleString();
+        row.forEach(val => {
+            let cleanVal = (val !== null && val !== undefined) ? val : '-';
+            // Formata números grandes com pontuação padrão (ex: 1.500.000)
+            if (typeof val === 'number' && !isNaN(val) && val > 999) {
+                cleanVal = val.toLocaleString('pt-BR');
             }
-            cells += `<td>${displayValue}</td>`;
+            cells += `<td>${cleanVal}</td>`;
         });
-
-        rows += `<tr class="hover:bg-slate-800/50 transition">${cells}</tr>`;
+        
+        rowsHtml += `<tr>${cells}</tr>`;
     });
-    $('#tableData').html(rows);
-    
-    // Índice de ordenação padrão por Abates (Kills)
-    let defaultSortIndex = 2; 
-    if (mainCategory === 'guilds' && subCategory === 'battles') defaultSortIndex = 4;
-    if (mainCategory === 'players' && subCategory === 'battles') defaultSortIndex = 5;
-    if (mainCategory === 'players' && subCategory === 'battlestotal') defaultSortIndex = 3;
+    $('#tableData').html(rowsHtml);
 
-    // Inicializa o DataTables
+    // Descobre automaticamente o índice da última coluna para ordenar por Abates/Kills por padrão
+    // Em estruturas limpas do Albion, a coluna de abates costuma ser a antepenúltima (TotalColumns - 2)
+    let sortColumnIndex = 2; 
+    if (mainCategory === 'guilds' && totalColumns === 6) sortColumnIndex = 4;
+    if (mainCategory === 'players' && totalColumns === 7) sortColumnIndex = 5;
+    if (mainCategory === 'players' && totalColumns === 5) sortColumnIndex = 3;
+
+    // Inicializa o DataTables de forma segura
     dt = $('#rankTable').DataTable({
         responsive: true,
-        order: [[defaultSortIndex, "desc"]],
+        order: [[sortColumnIndex, "desc"]],
         pageLength: 50,
         language: { 
             search: "PROCURAR:",
@@ -129,45 +126,31 @@ function render(data) {
         }
     });
 
-    // Atualiza metadados do topo
-    if (data[0] && data[0][0]) {
-        let topNameIndex = (subCategory === 'battles') ? 2 : 0; 
-        $('#top-name').text(data[0][topNameIndex] || data[0][0]);
+    // Atualiza o topo do painel
+    if (sampleRow) {
+        let nameIndex = (totalColumns > 5) ? 2 : 0;
+        $('#top-name').text(sampleRow[nameIndex] || sampleRow[0]);
     }
-    $('#total-rows').text(data.length.toLocaleString());
+    $('#total-rows').text(data.length.toLocaleString('pt-BR'));
 }
 
-// Inicialização dos Eventos com jQuery
 $(document).ready(() => {
-    // Monitora mudanças nos seletores normais
+    // Escuta alterações nos filtros suspensos
     $('#select-server, #select-month').on('change', () => {
         loadData();
     });
 
-    // Abas Principais (Nível 1)
-    $('.main-tab-btn').on('click', function() {
-        $('.main-tab-btn').removeClass('active');
+    // Gerencia cliques na barra de abas unificada
+    $('.tab-btn').on('click', function() {
+        $('.tab-btn').removeClass('active');
         $(this).addClass('active');
 
-        mainCategory = $(this).attr('data-main'); // 'guilds' ou 'players'
-        
-        // Atualiza dinamicamente o texto e comportamento dos botões filhos (Nível 2)
-        const label = mainCategory.toUpperCase();
-        $('#btn-sub-battles').text(`${label} BATTLES`);
-        $('#btn-sub-total').text(`${label} TOTAL`);
+        mainCategory = $(this).attr('data-main');
+        subCategory = $(this).attr('data-sub');
 
         loadData();
     });
 
-    // Sub-Abas (Nível 2)
-    $('.sub-tab-btn').on('click', function() {
-        $('.sub-tab-btn').removeClass('active');
-        $(this).addClass('active');
-
-        subCategory = $(this).attr('data-sub'); // 'battles' ou 'battlestotal'
-        loadData();
-    });
-
-    // Executa a primeira carga automática
+    // Carga inicial do sistema
     loadData();
 });

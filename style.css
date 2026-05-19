@@ -1,74 +1,145 @@
-/* Container Geral de Abas */
-.main-tabs-container, .sub-tabs-container {
-    display: flex;
-    gap: 0px; /* Alinhado lado a lado como abas nativas */
-    margin-bottom: 2px;
-    border-bottom: 2px solid #222; /* Linha de fundo escura */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-.sub-tabs-container {
-    margin-bottom: 25px; /* Espaço até a tabela */
+body {
+    background-color: #0b0f17;
+    color: #cbd5e1;
+    font-family: 'Courier New', Courier, monospace;
+    padding: 20px;
 }
 
-/* Botões de Aba Nível 1 */
-.main-tab-btn {
-    background: #111;
-    color: #888;
-    border: none;
-    padding: 14px 28px;
-    font-family: monospace;
-    font-weight: bold;
-    font-size: 1.1rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border-bottom: 3px solid transparent;
+.terminal-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background-color: #0d111a;
+    border: 1px solid #1e293b;
+    border-radius: 4px;
+    padding: 20px;
 }
 
-.main-tab-btn:hover {
+.terminal-header h1 {
+    font-size: 1.8rem;
     color: #fff;
-    background: #161616;
-}
-
-.main-tab-btn.active {
-    color: #f59e0b; /* Laranja/Amber Neon */
-    background: #1c1c1c;
-    border-bottom: 3px solid #f59e0b; /* Borda inferior destacada */
-}
-
-/* Botões de Aba Nível 2 (Sub-abas) */
-.sub-tab-btn {
-    background: #0d0d0d;
-    color: #666;
-    border: none;
-    padding: 10px 20px;
-    font-family: monospace;
-    font-size: 0.9rem;
     font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border-bottom: 2px solid transparent;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
 }
 
-.sub-tab-btn:hover {
-    color: #66c2ba; /* Teal para diferenciar o nível 2 */
-}
-
-.sub-tab-btn.active {
-    color: #66c2ba;
-    background: #141414;
-    border-bottom: 2px solid #66c2ba;
-}
-
-/* Formatação do Meta-Header do Painel */
 .top-meta-cards {
-    display: flex;
-    gap: 20px;
-    font-family: monospace;
     font-size: 0.9rem;
-    margin-top: 5px;
-    color: #888;
+    color: #64748b;
+    margin-bottom: 15px;
 }
 
 .top-meta-cards strong {
-    color: #66c2ba;
+    color: #2dd4bf;
+}
+
+/* Barra de Filtros Escura */
+.filter-bar {
+    display: flex;
+    gap: 20px;
+    background: #070a0f;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    border: 1px solid #1a2333;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-group label {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: #f1f5f9;
+}
+
+.filter-group select {
+    background: #111827;
+    color: #fff;
+    border: 1px solid #334155;
+    padding: 6px 10px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+/* CONTAINER DE ABAS UNIFICADO (IGUAL AO PRINT) */
+.main-tabs-container {
+    display: flex;
+    width: 100%;
+    border-bottom: 2px solid #1e293b; /* Linha horizontal cinza contínua */
+    background-color: #070a0f;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    background: transparent;
+    color: #475569; /* Tom cinza apagado para os inativos */
+    border: none;
+    padding: 14px 24px;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border-bottom: 3px solid transparent; /* Reserva o espaço do traço */
+}
+
+.tab-btn:hover {
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* Quando o botão estiver ativo, acende a cor e coloca o traço inferior laranja */
+.tab-btn.active {
+    color: #f59e0b !important; /* Cor Laranja viva */
+    border-bottom: 3px solid #f59e0b !important; /* Traço grosso inferior */
+    background: #0d111a;
+}
+
+/* Customização Forçada do DataTables Dark */
+.table-responsive {
+    background: #0d111a;
+    overflow-x: auto;
+}
+
+table.dataTable.display tbody tr {
+    background-color: #0d111a !important;
+    color: #cbd5e1 !important;
+}
+
+table.dataTable.display tbody tr:hover {
+    background-color: #1e293b !important;
+}
+
+table.dataTable thead th {
+    background-color: #070a0f !important;
+    color: #94a3b8 !important;
+    border-bottom: 2px solid #1e293b !important;
+    padding: 12px 10px !important;
+    font-family: monospace;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+    background-color: #111827 !important;
+    color: #fff !important;
+    border: 1px solid #334155 !important;
+    padding: 6px 10px !important;
+    border-radius: 4px;
+}
+
+.dataTables_wrapper .dataTables_filter,
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_info {
+    color: #64748b !important;
+    font-family: monospace;
 }
