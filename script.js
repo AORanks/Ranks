@@ -97,7 +97,7 @@ async function loadData() {
 
     } catch (err) {
         console.error(err);
-        $('#total-rows').text('Erro 404');
+        $('#total-rows').text('Error 404');
         $('#table-wrapper').html(`
             <div style="color: #f59e0b; font-family: monospace; padding: 20px; border: 1px dashed #334155; line-height: 1.5; background: #070a0f;">
                 <strong>[STATUS 404 - NOT FOUND]:</strong> O arquivo de dados não foi localizado.<br><br>
@@ -186,16 +186,19 @@ function sortDataByColumn(colIndex, asc) {
         if (valA === null || valA === undefined) valA = asc ? Infinity : -Infinity;
         if (valB === null || valB === undefined) valB = asc ? Infinity : -Infinity;
 
-        // Limpa pontos de milhar e tenta converter a String do JSON para número real
-        let numA = Number(String(valA).replace(/\./g, ''));
-        let numB = Number(String(valB).replace(/\./g, ''));
+        // PROTEÇÃO EXTRA DE TIPOS: Limpa pontos, espaços e converte para número puro
+        let cleanA = String(valA).replace(/\./g, '').replace(/\s/g, '').trim();
+        let cleanB = String(valB).replace(/\./g, '').replace(/\s/g, '').trim();
 
-        // Se ambos forem numéricos, executa a comparação matemática pura
+        let numA = Number(cleanA);
+        let numB = Number(cleanB);
+
+        // Se ambos conseguirem ser convertidos para números válidos, faz a ordenação matemática real
         if (!isNaN(numA) && !isNaN(numB)) {
             return asc ? numA - numB : numB - numA;
         }
 
-        // Se for string de texto normal (Nome de guilda/player), mantém a ordenação alfabética
+        // Se for texto puro (Nomes), mantém a ordenação alfabética padrão
         if (typeof valA === 'string' && typeof valB === 'string') {
             return asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
         }
@@ -248,18 +251,25 @@ $(document).ready(() => {
     // Evento de mudança nos filtros select
     $('#select-server, #select-month').on('change', loadData);
 
-    // Evento de clique unificado nos botões de abas
+    // BLINDAGEM DO CLICK DAS ABAS: Evita ler propriedades nulas de undefined
     $('.tab-btn').off('click').on('click', function() {
         if ($(this).hasClass('active')) return;
+
+        const rawMain = $(this).attr('data-main');
+        const rawSub = $(this).attr('data-sub');
+
+        // Se por acaso faltar algum atributo no HTML, ignora para não crashar
+        if (!rawMain || !rawSub) return;
+
         $('.tab-btn').removeClass('active');
         $(this).addClass('active');
 
-        mainCategory = $(this).attr('data-main').toLowerCase().trim();
-        subCategory = $(this).attr('data-sub').toLowerCase().trim();
+        mainCategory = rawMain.toLowerCase().trim();
+        subCategory = rawSub.toLowerCase().trim();
         
         loadData();
     });
 
-    // Execução inicial automática
+    // Execução inicial automática ao abrir a página
     loadData();
 });
