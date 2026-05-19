@@ -2,7 +2,7 @@ let allData = [];       // Guarda todo o array bruto em memória
 let displayedCount = 0; // Quantos registros já foram injetados na tela
 const CHUNK_SIZE = 100; // Tamanho de cada bloco de carregamento
 
-// Estado das Categorias Activas (Padrão inicial)
+// Estado das Categorias Ativas (Padrão inicial)
 let mainCategory = 'guilds'; 
 let subCategory = 'battles'; 
 
@@ -14,6 +14,7 @@ async function loadData() {
     const serverElement = $('#select-server');
     const monthElement = $('#select-month');
 
+    // PROTEÇÃO CRÍTICA: Se os elementos não existirem na DOM, aborta para não dar erro de undefined
     if (!serverElement.length || !monthElement.length) return;
 
     const server = (serverElement.val() || 'americas').toLowerCase().trim();
@@ -25,13 +26,22 @@ async function loadData() {
     else if (monthValue.includes("mar")) monthNumber = "3";
     else if (monthValue.includes("apr")) monthNumber = "4";
 
-    // NOVA REGRA DE PASTAS SOLICITADA:
-    // Raiz: guilds ou players | Subpasta: americasguildsbattles, americasguildstotal, etc.
-    const folderPath = `${mainCategory}/${server}${mainCategory}${subCategory}`;
+    // AJUSTE DE ROTAS PARA AS PASTAS DO GITHUB:
+    // Se for subCategory === 'total', a pasta física termina com 'battlestotal'
+    let folderSubName = subCategory;
+    if (subCategory === 'total') {
+        folderSubName = 'battlestotal';
+    }
+
+    // Define o nome exato da pasta raiz com a primeira letra maiúscula (Guilds / Players)
+    const rootFolder = mainCategory === 'guilds' ? 'Guilds' : 'Players';
+
+    // Monta o caminho exato: ./Guilds/americasguildsbattles/guilds (1).json
+    const folderPath = `${rootFolder}/${server}${mainCategory}${folderSubName}`;
     const fileName = `${mainCategory} (${monthNumber}).json`;
     const finalPath = `./${folderPath}/${fileName}`;
 
-    console.log(`[AO Ranks] Efetuando requisição em: ${finalPath}`);
+    console.log(`[AO Ranks] Buscando arquivo em: ${finalPath}`);
     $('#total-rows').text('...');
     
     allData = [];
@@ -39,6 +49,7 @@ async function loadData() {
     currentSortColumn = null;
     isAscending = false;
     
+    // Injeta a estrutura da tabela de forma limpa
     $('#table-wrapper').html(`
         <div class="scroll-container" id="scroll-box">
             <table id="rankTable">
@@ -56,7 +67,7 @@ async function loadData() {
         const json = await response.json();
         
         if (!json.d || json.d.length === 0) {
-            $('#table-body').html('<tr><td colspan="10" style="text-align:center; padding:20px;">Nenhum dado encontrado.</td></tr>');
+            $('#table-body').html('<tr><td colspan="10" style="text-align:center; padding:20px; color:#f59e0b;">Nenhum dado encontrado para este mês.</td></tr>');
             $('#total-rows').text('0');
             return;
         }
@@ -67,7 +78,7 @@ async function loadData() {
         const totalColumns = allData[0].length;
         renderHeaders(totalColumns);
 
-        // Define coluna padrão para ordenação baseada no PvP (ABATES)
+        // Define a coluna padrão para ordenação competitiva inicial (ABATES)
         let initialSortIndex = 0; 
         if (mainCategory === 'guilds' && totalColumns === 6) initialSortIndex = 3; 
         if (mainCategory === 'guilds' && totalColumns === 4) initialSortIndex = 1; 
@@ -84,11 +95,12 @@ async function loadData() {
 
     } catch (err) {
         console.error(err);
-        $('#total-rows').text('Erro');
+        $('#total-rows').text('Erro 404');
         $('#table-wrapper').html(`
-            <div style="color: #f59e0b; font-family: monospace; padding: 20px; border: 1px dashed #334155; line-height: 1.5;">
-                <strong>[STATUS 404]:</strong> Dados não localizados na nova estrutura.<br>
-                <strong>Caminho Esperado:</strong> ${finalPath}
+            <div style="color: #f59e0b; font-family: monospace; padding: 20px; border: 1px dashed #334155; line-height: 1.5; background: #070a0f;">
+                <strong>[STATUS 404 - NOT FOUND]:</strong> O arquivo de dados não foi localizado.<br><br>
+                <strong>Caminho Verificado:</strong> <span style="color:#2dd4bf;">${finalPath}</span><br><br>
+                <span>Certifique-se de que o arquivo JSON foi commitado exatamente dentro desta pasta no GitHub.</span>
             </div>
         `);
     }
@@ -219,29 +231,30 @@ function setupScrollEvent() {
     });
 }
 
-// Controle de cliques nas Abas e Sub-Abas
 $(document).ready(() => {
+    // Filtros Select
     $('#select-server, #select-month').on('change', loadData);
 
-    // Clique na Aba Principal (GUILDS / PLAYERS)
-    $('.tab-btn').on('click', function() {
+    // Abas Principais (GUILDS / PLAYERS)
+    $('.tab-btn').off('click').on('click', function() {
         if ($(this).hasClass('active')) return;
         $('.tab-btn').removeClass('active');
         $(this).addClass('active');
 
-        mainCategory = $(this).attr('data-main');
+        mainCategory = $(this).attr('data-main').toLowerCase().trim();
         loadData();
     });
 
-    // Clique na Sub-Aba Interna (BATTLES / TOTAL)
-    $('.sub-tab-btn').on('click', function() {
+    // Sub-Abas Internas (BATTLES / TOTAL)
+    $('.sub-tab-btn').off('click').on('click', function() {
         if ($(this).hasClass('active')) return;
         $('.sub-tab-btn').removeClass('active');
         $(this).addClass('active');
 
-        subCategory = $(this).attr('data-sub');
+        subCategory = $(this).attr('data-sub').toLowerCase().trim();
         loadData();
     });
 
+    // Execução Inicial
     loadData();
 });
