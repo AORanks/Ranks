@@ -1,13 +1,14 @@
-let allData = [];       // Guarda todo o array de dados em memória
-let displayedCount = 0; // Controla quantos registros já foram renderizados
-const CHUNK_SIZE = 150; // Quantidade otimizada de linhas por bloco no scroll
+let allData = [];         // Guarda o array bruto completo vindo do JSON
+let filteredData = [];    // Guarda os dados filtrados pela busca em tempo real
+let displayedCount = 0;   // Controla quantos registros já foram renderizados
+const CHUNK_SIZE = 150;   // Quantidade otimizada de linhas por bloco no scroll
 
 // Estado inicial correspondente ao primeiro botão ativo
 let mainCategory = 'guilds'; 
 let subCategory = 'battles'; 
 
 // Estado de ordenação global
-let currentSortKey = 'ABATES'; // Por padrão, inicia ordenando pelos maiores abates
+let currentSortKey = 'ABATES'; 
 let isAscending = false;      
 
 async function loadData() {
@@ -25,8 +26,7 @@ async function loadData() {
     else if (monthValue.includes("mar")) monthNumber = "3";
     else if (monthValue.includes("apr")) monthNumber = "4";
 
-    // CORREÇÃO DOS CAMINHOS BASEADO NOS TEUS PRINTS:
-    // Junta exatamente: server + mainCategory (guilds/players) + battles (+ total se aplicável)
+    // Mapeamento das pastas físicas do GitHub
     let folderSubName = subCategory === 'total' ? 'battlestotal' : 'battles';
     const rootFolder = mainCategory === 'guilds' ? 'Guilds' : 'Players';
 
@@ -37,12 +37,15 @@ async function loadData() {
     console.log(`[AO Ranks] Efetuando requisição em: ${finalPath}`);
     $('#total-rows').text('...');
     
+    // Reset de estados e limpeza do input ao trocar de aba/filtro
     allData = [];
+    filteredData = [];
     displayedCount = 0;
     currentSortKey = 'ABATES'; 
     isAscending = false; 
+    $('#search-input').val('');
+    $('#clear-search').hide();
     
-    // Limpa e reconstrói a estrutura da tabela
     $('#table-wrapper').html(`
         <div class="scroll-container" id="scroll-box">
             <table id="rankTable">
@@ -57,7 +60,6 @@ async function loadData() {
         const response = await fetch(finalPath);
         if (!response.ok) throw new Error(`HTTP Erro: Status ${response.status}`);
         
-        // Se o teu JSON vier dentro de uma chave ".d", usamos json.d, senão usamos o array direto
         const resData = await response.json();
         const rawArray = resData.d ? resData.d : resData;
         
@@ -68,16 +70,14 @@ async function loadData() {
         }
 
         allData = rawArray;
-        $('#total-rows').text(allData.length.toLocaleString('pt-BR'));
+        filteredData = [...allData]; // Inicialmente os dados filtrados são iguais aos totais
+        
+        $('#total-rows').text(filteredData.length.toLocaleString('pt-BR'));
 
-        // Renderiza os cabeçalhos fixos da estrutura da UI
         renderHeaders();
-
-        // Ordena inicialmente por Abates (Maior para o Menor)
         sortDataByKey(currentSortKey, false);
         $(`th[data-key="${currentSortKey}"]`).addClass('sort-desc');
 
-        // Renderiza na tela
         renderTargetRows();
         setupScrollEvent();
 
@@ -105,7 +105,6 @@ function renderHeaders() {
                        '<th class="clickable-header" data-key="MORTES">MORTES</th>' +
                        '<th class="clickable-header" data-key="FAMA">FAMA</th>';
         } else {
-            // GUILDS TOTAL - Apenas as 4 colunas essenciais
             headers += '<th class="clickable-header" data-key="GUILDA">GUILDA</th>' +
                        '<th class="clickable-header" data-key="ABATES">ABATES</th>' +
                        '<th class="clickable-header" data-key="MORTES">MORTES</th>' +
@@ -121,7 +120,6 @@ function renderHeaders() {
                        '<th class="clickable-header" data-key="MORTES">MORTES</th>' +
                        '<th class="clickable-header" data-key="FAMA">FAMA</th>';
         } else {
-            // PLAYERS TOTAL
             headers += '<th class="clickable-header" data-key="JOGADOR">JOGADOR</th>' +
                        '<th class="clickable-header" data-key="GUILDA">GUILDA</th>' +
                        '<th class="clickable-header" data-key="ABATES">ABATES</th>' +
@@ -135,12 +133,14 @@ function renderHeaders() {
 }
 
 function renderTargetRows() {
-    const nextChunk = allData.slice(displayedCount, displayedCount + CHUNK_SIZE);
-    if (nextChunk.length === 0) return;
+    const nextChunk = filteredData.slice(displayedCount, displayedCount + CHUNK_SIZE);
+    
+    if (nextChunk.length === 0 && displayedCount === 0) {
+        $('#table-body').html('<tr><td colspan="10" style="text-align:center; padding:30px; color:#ef4444; font-family:monospace;">[NENHUM RESULTADO CORRESPONDENTE À BUSCA]</td></tr>');
+        return;
+    }
 
     let rowsHtml = '';
-    
-    // Pegamos a lista de chaves textuais que devem ser exibidas nesta aba
     const keysToRender = [];
     $('#table-head th.clickable-header').each(function() {
         const key = $(this).attr('data-key');
@@ -149,19 +149,17 @@ function renderTargetRows() {
 
     for (let i = 0; i < nextChunk.length; i++) {
         const globalRank = isAscending && currentSortKey !== 'rank'
-            ? allData.length - (displayedCount + i)
+            ? filteredData.length - (displayedCount + i)
             : displayedCount + i + 1;
 
         rowsHtml += `<tr><td style="color: #f59e0b; font-weight: bold; text-align: center;">#${globalRank}</td>`;
         
         const itemData = nextChunk[i];
 
-        // Mapeamento Inteligente: Busca no objeto do JSON pela palavra correta mapeada na Th
         for (let k = 0; k < keysToRender.length; k++) {
             const currentKey = keysToRender[k];
-            let val = itemData[currentKey]; // EX: itemData["ABATES"] ou itemData["GUILDA"]
+            let val = itemData[currentKey];
 
-            // Se o teu JSON veio mapeado com índices (Array), fazemos o fallback automático de segurança:
             if (val === undefined && Array.isArray(itemData)) {
                 val = itemData[k]; 
             }
@@ -171,7 +169,6 @@ function renderTargetRows() {
             } else if (typeof val === 'number' && val > 999) {
                 rowsHtml += `<td>${val.toLocaleString('pt-BR')}</td>`;
             } else {
-                // Se for um número stringificado com pontos do Pandas, limpa e formata como número real
                 let cleanStr = String(val).replace(/\./g, '').trim();
                 if (!isNaN(cleanStr) && cleanStr !== '' && currentKey !== 'BATTLE ID') {
                     rowsHtml += `<td>${Number(cleanStr).toLocaleString('pt-BR')}</td>`;
@@ -187,14 +184,57 @@ function renderTargetRows() {
     displayedCount += nextChunk.length;
 }
 
+// Executa a busca em tempo real com base no input do teclado
+function handleSearch(query) {
+    const cleanQuery = query.toLowerCase().trim();
+
+    if (cleanQuery === '') {
+        filteredData = [...allData];
+        $('#clear-search').hide();
+    } else {
+        $('#clear-search').show();
+        filteredData = allData.filter(item => {
+            // Se os dados forem Objetos {}
+            if (!Array.isArray(item)) {
+                const nameInObj = (item.GUILDA || item.JOGADOR || '').toLowerCase();
+                return nameInObj.includes(cleanQuery);
+            } 
+            // Fallback se os dados forem Arrays []
+            else {
+                return item.some(field => String(field).toLowerCase().includes(cleanQuery));
+            }
+        });
+    }
+
+    // Atualiza o contador com o número de resultados encontrados
+    $('#total-rows').text(filteredData.length.toLocaleString('pt-BR'));
+    
+    // Reseta o scroll e re-renderiza a tabela filtrada
+    displayedCount = 0;
+    $('#table-body').empty();
+    $('#scroll-box').scrollTop(0);
+    renderTargetRows();
+}
+
 function sortDataByKey(key, asc) {
     if (key === 'rank') {
-        allData.reverse();
+        filteredData.reverse();
         return;
     }
-    allData.sort((a, b) => {
+    filteredData.sort((a, b) => {
         let valA = a[key];
         let valB = b[key];
+
+        if (valA === undefined && Array.isArray(a)) {
+            const keys = [];
+            $('#table-head th.clickable-header').each(function() {
+                const k = $(this).attr('data-key');
+                if (k !== 'rank') keys.push(k);
+            });
+            const idx = keys.indexOf(key);
+            valA = a[idx];
+            valB = b[idx];
+        }
 
         if (valA === null || valA === undefined) valA = asc ? Infinity : -Infinity;
         if (valB === null || valB === undefined) valB = asc ? Infinity : -Infinity;
@@ -249,7 +289,7 @@ function setupScrollEvent() {
             const scrollHeight = $(this).prop('scrollHeight');
 
             if (scrollTop + innerHeight >= scrollHeight - 100) {
-                if (displayedCount < allData.length) {
+                if (displayedCount < filteredData.length) {
                     renderTargetRows();
                 }
             }
@@ -271,6 +311,17 @@ $(document).ready(() => {
         subCategory = $(this).attr('data-sub').toLowerCase().trim();
         
         loadData();
+    });
+
+    // ESCUTADOR DA BARRA DE BUSCA (Input Dinâmico)
+    $('#search-input').on('input', function() {
+        handleSearch($(this).val());
+    });
+
+    // Botão de limpar a busca instantaneamente
+    $('#clear-search').on('click', function() {
+        $('#search-input').val('');
+        handleSearch('');
     });
 
     loadData();
