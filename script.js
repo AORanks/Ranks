@@ -26,11 +26,20 @@ async function loadData() {
     else if (monthValue.includes("mar")) monthNumber = "3";
     else if (monthValue.includes("apr")) monthNumber = "4";
 
-    // Mapeamento exato das tuas pastas do GitHub
-    let folderSubName = subCategory === 'total' ? 'battlestotal' : subCategory;
+    // CORREÇÃO DOS CAMINHOS: Monta o nome exato conforme a tua estrutura do GitHub
+    let folderSubName = '';
+    if (subCategory === 'total') {
+        // Se for a aba total, a pasta termina com 'battlestotal' (Ex: americasguildsbattlestotal)
+        folderSubName = 'battlestotal';
+    } else {
+        // Se for a aba normal, termina apenas com 'battles' (Ex: americasguildsbattles)
+        folderSubName = 'battles';
+    }
+
+    // RESOLUÇÃO DO 404: Garante a primeira letra maiúscula das pastas raiz (Guilds / Players)
     const rootFolder = mainCategory === 'guilds' ? 'Guilds' : 'Players';
 
-    // Montagem do caminho exato do teu repositório
+    // Montagem do caminho corrigido: server + mainCategory (guilds/players) + folderSubName (battles/battlestotal)
     const folderPath = `${rootFolder}/${server}${mainCategory}${folderSubName}`;
     const fileName = `${mainCategory} (${monthNumber}).json`;
     const finalPath = `./${folderPath}/${fileName}`;
@@ -69,7 +78,7 @@ async function loadData() {
         allData = json.d;
         $('#total-rows').text(allData.length.toLocaleString('pt-BR'));
 
-        // Renderiza cabeçalhos baseados na aba ativa e não no tamanho do JSON
+        // Renderiza cabeçalhos baseados na aba ativa
         renderHeaders();
 
         // BUSCA DINÂMICA: Acha o índice real da coluna "ABATES" para alinhar a ordenação
@@ -96,8 +105,9 @@ async function loadData() {
         $('#total-rows').text('Erro 404');
         $('#table-wrapper').html(`
             <div style="color: #f59e0b; font-family: monospace; padding: 25px; border: 1px dashed #334155; background: #070a0f;">
-                <strong>[STATUS 404]:</strong> O arquivo de dados não foi localizado.<br>
-                Caminho: <span style="color:#2dd4bf;">${finalPath}</span>
+                <strong>[STATUS 404 - NOT FOUND]:</strong> O arquivo de dados não foi localizado.<br><br>
+                <strong>Caminho Tentado:</strong> <span style="color:#2dd4bf;">${finalPath}</span><br><br>
+                <span>Verifique se o nome da pasta no seu repositório bate exatamente com o caminho acima.</span>
             </div>
         `);
     }
@@ -108,7 +118,7 @@ function renderHeaders() {
     
     if (mainCategory === 'guilds') {
         if (subCategory === 'battles') {
-            // Aba Guilds Battles (6 colunas de dados vindo do JSON)
+            // Aba Guilds Battles (Com ID e Tempo)
             headers += '<th class="clickable-header" data-col="0">TIME</th>' +
                        '<th class="clickable-header" data-col="1">BATTLE ID</th>' +
                        '<th class="clickable-header" data-col="2">GUILDA</th>' +
@@ -116,7 +126,7 @@ function renderHeaders() {
                        '<th class="clickable-header" data-col="4">MORTES</th>' +
                        '<th class="clickable-header" data-col="5">FAMA</th>';
         } else {
-            // Aba Guilds Total (Força os índices corretos das 4 colunas reais do arquivo total)
+            // Aba Guilds Total (Direto da pasta battlestotal)
             headers += '<th class="clickable-header" data-col="0">GUILDA</th>' +
                        '<th class="clickable-header" data-col="1">ABATES</th>' +
                        '<th class="clickable-header" data-col="2">MORTES</th>' +
@@ -124,7 +134,7 @@ function renderHeaders() {
         }
     } else {
         if (subCategory === 'battles') {
-            // Aba Players Battles (7 colunas de dados vindo do JSON)
+            // Aba Players Battles
             headers += '<th class="clickable-header" data-col="0">TIME</th>' +
                        '<th class="clickable-header" data-col="1">BATTLE ID</th>' +
                        '<th class="clickable-header" data-col="2">JOGADOR</th>' +
@@ -133,7 +143,7 @@ function renderHeaders() {
                        '<th class="clickable-header" data-col="5">MORTES</th>' +
                        '<th class="clickable-header" data-col="6">FAMA</th>';
         } else {
-            // Aba Players Total (5 colunas reais do arquivo de totais de players)
+            // Aba Players Total
             headers += '<th class="clickable-header" data-col="0">JOGADOR</th>' +
                        '<th class="clickable-header" data-col="1">GUILDA</th>' +
                        '<th class="clickable-header" data-col="2">ABATES</th>' +
@@ -190,7 +200,6 @@ function sortDataByColumn(colIndex, asc) {
         if (valA === null || valA === undefined) valA = asc ? Infinity : -Infinity;
         if (valB === null || valB === undefined) valB = asc ? Infinity : -Infinity;
 
-        // Limpa formatações para garantir ordenação numérica pura
         let cleanA = String(valA).replace(/\./g, '').replace(/\s/g, '').trim();
         let cleanB = String(valB).replace(/\./g, '').replace(/\s/g, '').trim();
 
