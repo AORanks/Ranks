@@ -1,163 +1,232 @@
-let dt = null;
-let mainCategory = 'guilds'; // 'guilds' ou 'players'
-let subCategory = 'battles';  // 'battles' ou 'battlestotal'
+let currentCategory = 'guildsbattles';
+let allDataRows = []; 
+let currentIndex = 0;
+const rowsPerPage = 100; 
 
-async function loadData() {
-    const server = $('#select-server').val().toLowerCase().trim(); // ex: 'americas'
-    const monthValue = $('#select-month').val().toLowerCase().trim(); // ex: 'january'
-    
-    // Mapeamento numérico dos arquivos (1, 2, 3, 4) baseado no mês selecionado
-    let monthNumber = "1";
-    if (monthValue.includes("jan")) monthNumber = "1";
-    else if (monthValue.includes("feb")) monthNumber = "2";
-    else if (monthValue.includes("mar")) monthNumber = "3";
-    else if (monthValue.includes("apr")) monthNumber = "4";
+// Gerenciamento do estado da ordenação pelas colunas
+let currentSortColumn = null;
+let isAscending = true;
 
-    // Constrói o caminho das pastas locais baseado nas combinações (ex: americasguildsbattlestotal)
-    const folderName = `${server}${mainCategory}${subCategory}`;
-    const fileName = `${mainCategory} (${monthNumber}).json`;
-    const finalPath = `./${folderName}/${fileName}`;
-
-    $('#total-rows').text('Carregando...');
-
-    try {
-        const response = await fetch(finalPath);
-        
-        if (!response.ok) {
-            throw new Error(`Arquivo não localizado no caminho: ${finalPath}`);
-        }
-        
-        const json = await response.json();
-        
-        // Valida se o banco de dados compacto possui a propriedade 'd' preenchida
-        if (!json.d || json.d.length === 0) {
-            throw new Error("O arquivo JSON existe, mas os dados ('d') estão vazios.");
-        }
-
-        render(json.d);
-        
-    } catch (err) {
-        console.error(err);
-        $('#total-rows').text('Erro');
-        $('#top-name').text('---');
-        $('#table-head').html(`<tr><th>Status: Banco Offline</th></tr>`);
-        $('#tableData').html(`<tr><td style="color:#ff6b6b; padding:20px;">${err.message}</td></tr>`);
+document.addEventListener("DOMContentLoaded", () => {
+    if (!document.getElementById('load-more-btn')) {
+        const btn = document.createElement('button');
+        btn.id = 'load-more-btn';
+        btn.innerText = 'CARREGAR MAIS REGISTROS';
+        btn.style = 'display:none; margin: 20px auto; padding: 12px 24px; background: #00ff87; color: #000; border: none; font-family: monospace; font-weight: bold; cursor: pointer; box-shadow: 0 0 10px rgba(0, 255, 135, 0.3);';
+        btn.onclick = () => renderNextRows();
+        document.querySelector('.table-responsive').after(btn);
     }
-}
-
-function render(data) {
-    // Destrói a instância anterior para evitar vazamento de memória e travamento de chaves
-    if (dt) {
-        dt.destroy();
-        $('#tableData').empty();
-    }
-    
-    // Gerencia dinamicamente os CabeçalhosOficiais solicitados no HTML
-    let headersHtml = '<tr><th>RANK</th>';
-    if (mainCategory === 'guilds') {
-        if (subCategory === 'battles') {
-            headersHtml += `<th>TIME</th><th>BATTLE ID</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>`;
-        } else {
-            headersHtml += `<th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>`;
-        }
-    } else { // 'players'
-        if (subCategory === 'battles') {
-            headersHtml += `<th>TIME</th><th>BATTLE ID</th><th>JOGADOR</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>`;
-        } else {
-            headersHtml += `<th>JOGADOR</th><th>GUILDA</th><th>ABATES</th><th>MORTES</th><th>FAMA</th>`;
-        }
-    }
-    headersHtml += '</tr>';
-    $('#table-head').html(headersHtml);
-
-    // Montagem eficiente de strings no loop
-    let rows = '';
-    data.forEach((row, i) => {
-        let cells = `<td class="font-bold text-center">#${i+1}</td>`;
-        
-        // Mapeia as células do array baseado estritamente na categoria ativa
-        row.forEach(value => {
-            let displayValue = (value !== null && value !== undefined) ? value : '-';
-            
-            // Aplica formatação de milhar para números grandes (Kills, Deaths, Fame)
-            if (typeof value === 'number' && !isNaN(value) && value > 100) {
-                displayValue = value.toLocaleString();
-            }
-            cells += `<td>${displayValue}</td>`;
-        });
-
-        rows += `<tr class="hover:bg-slate-800/50 transition">${cells}</tr>`;
-    });
-
-    $('#tableData').html(rows);
-    
-    // Define dinamicamente qual coluna será o gatilho padrão de ordenação decrescente (Abates / Kills)
-    // O Rank ocupa o índice 0. Procuramos a coluna de abates baseados nas posições dinâmicas
-    let defaultSortIndex = 2; // Padrão Guilds Total (Rank = 0, Guild = 1, Kills = 2)
-    
-    if (mainCategory === 'guilds' && subCategory === 'battles') defaultSortIndex = 4; // Time(1), ID(2), Guild(3), Kills(4)
-    if (mainCategory === 'players' && subCategory === 'battles') defaultSortIndex = 5; // Time(1), ID(2), Player(3), Guild(4), Kills(5)
-    if (mainCategory === 'players' && subCategory === 'battlestotal') defaultSortIndex = 3; // Player(1), Guild(2), Kills(3)
-
-    // Inicializa o DataTables nativo com recursos completos de pesquisa e performance de rolagem
-    dt = $('#rankTable').DataTable({
-        responsive: true,
-        order: [[defaultSortIndex, "desc"]],
-        pageLength: 50,
-        language: { 
-            search: "PROCURAR:",
-            lengthMenu: "MOSTRAR _MENU_",
-            info: "Mostrando _TOTAL_ registros",
-            paginate: {
-                first: "«",
-                last: "»",
-                next: "›",
-                previous: "‹"
-            }
-        }
-    });
-
-    // Atualiza os seletores de meta informativos no topo da interface
-    if (data[0] && data[0][0]) {
-        // Se for aba de batalha, o índice 0 costuma ser o Time ou ID. Filtramos para pegar o nome
-        let topNameIndex = (subCategory === 'battles') ? 2 : 0; 
-        $('#top-name').text(data[0][topNameIndex] || data[0][0]);
-    }
-    $('#total-rows').text(data.length.toLocaleString());
-}
-
-// Inicialização e Gerenciamento de Cliques via jQuery
-$(document).ready(() => {
-    // Escuta mudanças nos seletores globais de Servidor e Mês
-    $('#select-server, #select-month').on('change', () => {
-        loadData();
-    });
-
-    // Evento para Abas Principais (Nível 1)
-    $('.main-tab-btn').on('click', function() {
-        $('.main-tab-btn').classList.remove('active'); // Nota: se der erro de seletor puro, use jQuery:
-        $('.main-tab-btn').removeClass('active');
-        $(this).addClass('active');
-
-        mainCategory = $(this).attr('data-type');
-        
-        // Atualiza os textos dos botões de sub-abas dinamicamente
-        const label = mainCategory.toUpperCase();
-        $('#btn-battles').text(`${label} BATTLES`);
-        $('#btn-total').text(`${label} TOTAL`);
-
-        loadData();
-    });
-
-    // Evento para Sub-Abas (Nível 2)
-    $('.sub-tab-btn').on('click', function() {
-        $('.sub-tab-btn').removeClass('active');
-        $(this).addClass('active');
-
-        subCategory = $(this).attr('data-sub');
-        loadData();
-    });
-
-    // Carregamento Inicial Forçado
-    loadData();
+    applyFilters();
 });
+
+function switchCategory(event, category) {
+    const buttons = document.querySelectorAll('.tab-btn');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    if (event.currentTarget) event.currentTarget.classList.add('active');
+    currentCategory = category;
+    
+    // Reseta o estado da ordenação ao alternar abas
+    currentSortColumn = null;
+    isAscending = true;
+    
+    applyFilters();
+}
+
+function applyFilters() {
+    const server = document.getElementById('select-server').value.toLowerCase().trim(); 
+    const monthValue = document.getElementById('select-month').value.toLowerCase().trim();
+    
+    let monthNumber = "1";
+    if (monthValue === "january" || monthValue === "janeiro") monthNumber = "1";
+    else if (monthValue === "february" || monthValue === "fevereiro") monthNumber = "2";
+    else if (monthValue === "march" || monthValue === "março") monthNumber = "3";
+    else if (monthValue === "april" || monthValue === "abril") monthNumber = "4";
+
+    const folderName = `${server}${currentCategory}`; 
+    let fileName = "";
+
+    if (currentCategory.startsWith('guilds')) {
+        fileName = `guilds (${monthNumber}).json`; 
+    } else if (currentCategory.startsWith('players')) {
+        fileName = `players (${monthNumber}).json`; 
+    }
+
+    const finalPath = `./${folderName}/${fileName}`;
+    console.log(`Buscando arquivo no caminho local: ${finalPath}`);
+
+    let columnsVisual = [];
+    if (currentCategory === 'guildsbattles') {
+        columnsVisual = ['Time', 'Battle ID', 'Guild', 'Kills', 'Deaths', 'Fame'];
+    } else if (currentCategory === 'guildsbattlestotal') {
+        columnsVisual = ['Guild', 'Kills', 'Deaths', 'Fame'];
+    } else if (currentCategory === 'playersbattles') {
+        columnsVisual = ['Time', 'Battle ID', 'Player', 'Guild', 'Kills', 'Deaths', 'Fame'];
+    } else if (currentCategory === 'playersbattlestotal') {
+        columnsVisual = ['Player', 'Guild', 'Kills', 'Deaths', 'Fame'];
+    }
+
+    fetchData(finalPath, columnsVisual);
+}
+
+function fetchData(fullPath, columnsVisual) {
+    const headerRow = document.getElementById('table-header');
+    const tableBody = document.getElementById('table-body');
+    const loadMoreBtn = document.getElementById('load-more-btn');
+
+    headerRow.innerHTML = '<th>ACESSANDO BANCO DE DADOS LOCAL...</th>';
+    tableBody.innerHTML = '';
+    if (loadMoreBtn) loadMoreBtn.style.display = 'none';
+
+    fetch(fullPath)
+        .then(response => {
+            if (!response.ok) throw new Error(`Status ${response.status}: Arquivo não localizado.`);
+            return response.json();
+        })
+        .then(jsonData => {
+            if (!jsonData || !jsonData.c || !Array.isArray(jsonData.d)) {
+                headerRow.innerHTML = '<th>ERRO: Estrutura compacta vazia ou inválida.</th>';
+                return;
+            }
+
+            const jsonColumnsNormalized = jsonData.c.map(col => 
+                col.toLowerCase().replace(' ', '').replace('/', '').replace('_', '')
+            );
+
+            allDataRows = jsonData.d;
+            window.currentJsonColumns = jsonColumnsNormalized;
+            window.currentColumnsVisual = columnsVisual;
+            currentIndex = 0;
+
+            // Mantém ordenação ativa se o usuário já tiver clicado antes de atualizar filtros
+            if (currentSortColumn) {
+                sortData(currentSortColumn, false);
+            } else {
+                renderHeaders();
+                renderNextRows(true);
+            }
+        })
+        .catch(error => {
+            console.warn("Fetch Error:", error.message);
+            headerRow.innerHTML = '<th>ARQUIVO INDISPONÍVEL</th>';
+            tableBody.innerHTML = `
+                <tr>
+                    <td style="color: #a8a8b3; padding: 24px; line-height: 1.8; font-family: monospace;">
+                        <span style="color: #ff6b6b; font-weight: bold;">Erro de Carregamento:</span> O arquivo local não foi encontrado:<br>
+                        <strong style="color: #66c2ba;">${fullPath}</strong><br><br>
+                        <span style="color: #fff; font-weight: bold;">Verifique se as pastas e arquivos locais existem no seu diretório com as nomenclaturas exatas.</span>
+                    </td>
+                </tr>`;
+        });
+}
+
+function renderHeaders() {
+    const headerRow = document.getElementById('table-header');
+    const columnsVisual = window.currentColumnsVisual;
+    
+    headerRow.innerHTML = '';
+    columnsVisual.forEach(col => {
+        const th = document.createElement('th');
+        th.style.cursor = 'pointer';
+        th.style.userSelect = 'none';
+        
+        let arrow = '';
+        if (col === currentSortColumn) {
+            arrow = isAscending ? ' ▲' : ' ▼';
+        }
+        
+        th.innerText = col.toUpperCase() + arrow;
+        th.onclick = () => sortData(col, true);
+        headerRow.appendChild(th);
+    });
+}
+
+function sortData(columnName, toggleDirection) {
+    const jsonColumnsNormalized = window.currentJsonColumns;
+    const colNormalized = columnName.toLowerCase().replace(' ', '').replace('/', '').replace('_', '');
+    const indexInJson = jsonColumnsNormalized.indexOf(colNormalized);
+    
+    if (indexInJson === -1) return;
+
+    if (toggleDirection) {
+        if (currentSortColumn === columnName) {
+            isAscending = !isAscending;
+        } else {
+            currentSortColumn = columnName;
+            isAscending = true;
+        }
+    }
+
+    allDataRows.sort((rowA, rowB) => {
+        let valA = rowA[indexInJson];
+        let valB = rowB[indexInJson];
+
+        if (valA === null || valA === undefined) valA = '';
+        if (valB === null || valB === undefined) valB = '';
+
+        const numA = Number(valA);
+        const numB = Number(valB);
+        
+        // Se as duas entradas forem puramente numéricas, ordena numericamente
+        if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
+            return isAscending ? numA - numB : numB - numA;
+        }
+
+        // Caso contrário, ordena de forma alfabética padrão string
+        const strA = String(valA).toLowerCase();
+        const strB = String(valB).toLowerCase();
+
+        if (strA < strB) return isAscending ? -1 : 1;
+        if (strA > strB) return isAscending ? 1 : -1;
+        return 0;
+    });
+
+    currentIndex = 0;
+    renderHeaders();
+    renderNextRows(true);
+}
+
+function renderNextRows(clearTable = false) {
+    const tableBody = document.getElementById('table-body');
+    const loadMoreBtn = document.getElementById('load-more-btn');
+    const columnsVisual = window.currentColumnsVisual;
+    const jsonColumnsNormalized = window.currentJsonColumns;
+    
+    if (clearTable) {
+        tableBody.innerHTML = '';
+    }
+    
+    if (!Array.isArray(allDataRows) || allDataRows.length === 0) return;
+
+    const end = Math.min(currentIndex + rowsPerPage, allDataRows.length);
+
+    for (let i = currentIndex; i < end; i++) {
+        const rowArray = allDataRows[i];
+        if (!Array.isArray(rowArray)) continue;
+
+        const tr = document.createElement('tr');
+        
+        columnsVisual.forEach(col => {
+            const td = document.createElement('td');
+            const colNormalized = col.toLowerCase().replace(' ', '').replace('/', '').replace('_', '');
+            const indexInJson = jsonColumnsNormalized.indexOf(colNormalized);
+            
+            let val = '-';
+            if (indexInJson !== -1 && rowArray[indexInJson] !== undefined) {
+                val = rowArray[indexInJson];
+            }
+            
+            td.innerText = (val !== null) ? val : '-';
+            tr.appendChild(td);
+        });
+        
+        tableBody.appendChild(tr);
+    }
+
+    currentIndex = end;
+
+    if (currentIndex < allDataRows.length) {
+        if (loadMoreBtn) loadMoreBtn.style.display = 'block';
+    } else {
+        if (loadMoreBtn) loadMoreBtn.style.display = 'none';
+    }
+}

@@ -3,27 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AO Ranks - Albion Online Archive</title>
+    <title>AO Ranks - Albion Online Battle Archive</title>
     <link rel="stylesheet" href="style.css">
-    
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
-    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 </head>
 <body>
     <div class="terminal-container">
         <header class="terminal-header">
-            <h1>AO RANKS // DATABASE</h1>
-            <div class="top-meta-cards">
-                <span>TOP 1: <strong id="top-name">---</strong></span>
-                <span>REGISTROS: <strong id="total-rows">0</strong></span>
-            </div>
+            <h1>AO RANKS // BATTLE_DATABASE</h1>
         </header>
 
         <div class="filter-bar">
             <div class="filter-group">
                 <label for="select-server">SERVIDOR:</label>
-                <select id="select-server">
+                <select id="select-server" onchange="applyFilters()">
                     <option value="americas">AMERICAS</option>
                     <option value="europe">EUROPE</option>
                     <option value="asia">ASIA</option>
@@ -32,7 +24,7 @@
             
             <div class="filter-group">
                 <label for="select-month">MÊS DE REFERÊNCIA:</label>
-                <select id="select-month">
+                <select id="select-month" onchange="applyFilters()">
                     <option value="january">JANEIRO (1)</option>
                     <option value="february">FEVEREIRO (2)</option>
                     <option value="march">MARÇO (3)</option>
@@ -41,21 +33,20 @@
             </div>
         </div>
 
-        <div class="main-tabs">
-            <button class="main-tab-btn active" data-type="guilds">GUILDS</button>
-            <button class="main-tab-btn" data-type="players">PLAYERS</button>
-        </div>
-
-        <div class="sub-tabs">
-            <button class="sub-tab-btn active" data-sub="battles" id="btn-battles">GUILDS BATTLES</button>
-            <button class="sub-tab-btn" data-sub="battlestotal" id="btn-total">GUILDS TOTAL</button>
+        <div class="tab-container">
+            <button class="tab-btn active" onclick="switchCategory(event, 'guildsbattles')">GUILDS BATTLES</button>
+            <button class="tab-btn" onclick="switchCategory(event, 'guildsbattlestotal')">GUILDS TOTAL</button>
+            <button class="tab-btn" onclick="switchCategory(event, 'playersbattles')">PLAYERS BATTLES</button>
+            <button class="tab-btn" onclick="switchCategory(event, 'playersbattlestotal')">PLAYERS TOTAL</button>
         </div>
 
         <div class="table-responsive">
-            <table id="rankTable" class="terminal-table display nowrap" style="width:100%">
-                <thead id="table-head">
-                    </thead>
-                <tbody id="tableData">
+            <table class="terminal-table">
+                <thead>
+                    <tr id="table-header">
+                        </tr>
+                </thead>
+                <tbody id="table-body">
                     </tbody>
             </table>
         </div>
