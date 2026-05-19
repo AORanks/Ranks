@@ -7,14 +7,13 @@ let mainCategory = 'guilds';
 let subCategory = 'battles'; 
 
 // Estado de ordenação global
-let currentSortColumn = null; 
+let currentSortKey = 'ABATES'; // Por padrão, inicia ordenando pelos maiores abates
 let isAscending = false;      
 
 async function loadData() {
     const serverElement = $('#select-server');
     const monthElement = $('#select-month');
 
-    // PROTEÇÃO: Impede falhas caso o DOM ainda esteja carregando
     if (!serverElement.length || !monthElement.length) return;
 
     const server = (serverElement.val() || 'americas').toLowerCase().trim();
@@ -26,33 +25,24 @@ async function loadData() {
     else if (monthValue.includes("mar")) monthNumber = "3";
     else if (monthValue.includes("apr")) monthNumber = "4";
 
-    // CORREÇÃO DOS CAMINHOS: Monta o nome exato conforme a tua estrutura do GitHub
-    let folderSubName = '';
-    if (subCategory === 'total') {
-        // Se for a aba total, a pasta termina com 'battlestotal' (Ex: americasguildsbattlestotal)
-        folderSubName = 'battlestotal';
-    } else {
-        // Se for a aba normal, termina apenas com 'battles' (Ex: americasguildsbattles)
-        folderSubName = 'battles';
-    }
-
-    // RESOLUÇÃO DO 404: Garante a primeira letra maiúscula das pastas raiz (Guilds / Players)
+    // CORREÇÃO DOS CAMINHOS BASEADO NOS TEUS PRINTS:
+    // Junta exatamente: server + mainCategory (guilds/players) + battles (+ total se aplicável)
+    let folderSubName = subCategory === 'total' ? 'battlestotal' : 'battles';
     const rootFolder = mainCategory === 'guilds' ? 'Guilds' : 'Players';
 
-    // Montagem do caminho corrigido: server + mainCategory (guilds/players) + folderSubName (battles/battlestotal)
     const folderPath = `${rootFolder}/${server}${mainCategory}${folderSubName}`;
     const fileName = `${mainCategory} (${monthNumber}).json`;
     const finalPath = `./${folderPath}/${fileName}`;
 
-    console.log(`[AO Ranks] Puxando dados direto de: ${finalPath}`);
+    console.log(`[AO Ranks] Efetuando requisição em: ${finalPath}`);
     $('#total-rows').text('...');
     
     allData = [];
     displayedCount = 0;
-    currentSortColumn = null;
+    currentSortKey = 'ABATES'; 
     isAscending = false; 
     
-    // Reconstrói a estrutura da tabela limpando resquícios anteriores
+    // Limpa e reconstrói a estrutura da tabela
     $('#table-wrapper').html(`
         <div class="scroll-container" id="scroll-box">
             <table id="rankTable">
@@ -67,36 +57,27 @@ async function loadData() {
         const response = await fetch(finalPath);
         if (!response.ok) throw new Error(`HTTP Erro: Status ${response.status}`);
         
-        const json = await response.json();
+        // Se o teu JSON vier dentro de uma chave ".d", usamos json.d, senão usamos o array direto
+        const resData = await response.json();
+        const rawArray = resData.d ? resData.d : resData;
         
-        if (!json.d || json.d.length === 0) {
-            $('#table-body').html('<tr><td colspan="10" style="text-align:center; padding:30px; color:#f59e0b;">Nenhum registro encontrado para este mês.</td></tr>');
+        if (!rawArray || rawArray.length === 0) {
+            $('#table-body').html('<tr><td colspan="10" style="text-align:center; padding:30px; color:#f59e0b;">Nenhum registro encontrado.</td></tr>');
             $('#total-rows').text('0');
             return;
         }
 
-        allData = json.d;
+        allData = rawArray;
         $('#total-rows').text(allData.length.toLocaleString('pt-BR'));
 
-        // Renderiza cabeçalhos baseados na aba ativa
+        // Renderiza os cabeçalhos fixos da estrutura da UI
         renderHeaders();
 
-        // BUSCA DINÂMICA: Acha o índice real da coluna "ABATES" para alinhar a ordenação
-        let killColumnIndex = 0;
-        $('#table-head th.clickable-header').each(function() {
-            if ($(this).text() === 'ABATES') {
-                killColumnIndex = parseInt($(this).attr('data-col'));
-            }
-        });
+        // Ordena inicialmente por Abates (Maior para o Menor)
+        sortDataByKey(currentSortKey, false);
+        $(`th[data-key="${currentSortKey}"]`).addClass('sort-desc');
 
-        // Aplica a ordenação inicial decrescente pela coluna correta de Kills
-        currentSortColumn = killColumnIndex;
-        sortDataByColumn(killColumnIndex, false);
-
-        // Adiciona a seta indicadora visual no cabeçalho
-        $(`th[data-col="${killColumnIndex}"]`).addClass('sort-desc');
-
-        // Renderiza o primeiro lote na tela de forma instantânea
+        // Renderiza na tela
         renderTargetRows();
         setupScrollEvent();
 
@@ -105,50 +86,47 @@ async function loadData() {
         $('#total-rows').text('Erro 404');
         $('#table-wrapper').html(`
             <div style="color: #f59e0b; font-family: monospace; padding: 25px; border: 1px dashed #334155; background: #070a0f;">
-                <strong>[STATUS 404 - NOT FOUND]:</strong> O arquivo de dados não foi localizado.<br><br>
-                <strong>Caminho Tentado:</strong> <span style="color:#2dd4bf;">${finalPath}</span><br><br>
-                <span>Verifique se o nome da pasta no seu repositório bate exatamente com o caminho acima.</span>
+                <strong style="color:#ef4444;">[STATUS 404]:</strong> Arquivo não localizado.<br><br>
+                <strong>Caminho tentado:</strong> <span style="color:#2dd4bf;">${finalPath}</span>
             </div>
         `);
     }
 }
 
 function renderHeaders() {
-    let headers = '<tr><th class="clickable-header" data-col="rank" style="width: 80px; text-align: center;">RANK</th>';
+    let headers = '<tr><th class="clickable-header" data-key="rank" style="width: 80px; text-align: center;">RANK</th>';
     
     if (mainCategory === 'guilds') {
         if (subCategory === 'battles') {
-            // Aba Guilds Battles (Com ID e Tempo)
-            headers += '<th class="clickable-header" data-col="0">TIME</th>' +
-                       '<th class="clickable-header" data-col="1">BATTLE ID</th>' +
-                       '<th class="clickable-header" data-col="2">GUILDA</th>' +
-                       '<th class="clickable-header" data-col="3">ABATES</th>' +
-                       '<th class="clickable-header" data-col="4">MORTES</th>' +
-                       '<th class="clickable-header" data-col="5">FAMA</th>';
+            headers += '<th class="clickable-header" data-key="TIME">TIME</th>' +
+                       '<th class="clickable-header" data-key="BATTLE ID">BATTLE ID</th>' +
+                       '<th class="clickable-header" data-key="GUILDA">GUILDA</th>' +
+                       '<th class="clickable-header" data-key="ABATES">ABATES</th>' +
+                       '<th class="clickable-header" data-key="MORTES">MORTES</th>' +
+                       '<th class="clickable-header" data-key="FAMA">FAMA</th>';
         } else {
-            // Aba Guilds Total (Direto da pasta battlestotal)
-            headers += '<th class="clickable-header" data-col="0">GUILDA</th>' +
-                       '<th class="clickable-header" data-col="1">ABATES</th>' +
-                       '<th class="clickable-header" data-col="2">MORTES</th>' +
-                       '<th class="clickable-header" data-col="3">FAMA</th>';
+            // GUILDS TOTAL - Apenas as 4 colunas essenciais
+            headers += '<th class="clickable-header" data-key="GUILDA">GUILDA</th>' +
+                       '<th class="clickable-header" data-key="ABATES">ABATES</th>' +
+                       '<th class="clickable-header" data-key="MORTES">MORTES</th>' +
+                       '<th class="clickable-header" data-key="FAMA">FAMA</th>';
         }
     } else {
         if (subCategory === 'battles') {
-            // Aba Players Battles
-            headers += '<th class="clickable-header" data-col="0">TIME</th>' +
-                       '<th class="clickable-header" data-col="1">BATTLE ID</th>' +
-                       '<th class="clickable-header" data-col="2">JOGADOR</th>' +
-                       '<th class="clickable-header" data-col="3">GUILDA</th>' +
-                       '<th class="clickable-header" data-col="4">ABATES</th>' +
-                       '<th class="clickable-header" data-col="5">MORTES</th>' +
-                       '<th class="clickable-header" data-col="6">FAMA</th>';
+            headers += '<th class="clickable-header" data-key="TIME">TIME</th>' +
+                       '<th class="clickable-header" data-key="BATTLE ID">BATTLE ID</th>' +
+                       '<th class="clickable-header" data-key="JOGADOR">JOGADOR</th>' +
+                       '<th class="clickable-header" data-key="GUILDA">GUILDA</th>' +
+                       '<th class="clickable-header" data-key="ABATES">ABATES</th>' +
+                       '<th class="clickable-header" data-key="MORTES">MORTES</th>' +
+                       '<th class="clickable-header" data-key="FAMA">FAMA</th>';
         } else {
-            // Aba Players Total
-            headers += '<th class="clickable-header" data-col="0">JOGADOR</th>' +
-                       '<th class="clickable-header" data-col="1">GUILDA</th>' +
-                       '<th class="clickable-header" data-col="2">ABATES</th>' +
-                       '<th class="clickable-header" data-col="3">MORTES</th>' +
-                       '<th class="clickable-header" data-col="4">FAMA</th>';
+            // PLAYERS TOTAL
+            headers += '<th class="clickable-header" data-key="JOGADOR">JOGADOR</th>' +
+                       '<th class="clickable-header" data-key="GUILDA">GUILDA</th>' +
+                       '<th class="clickable-header" data-key="ABATES">ABATES</th>' +
+                       '<th class="clickable-header" data-key="MORTES">MORTES</th>' +
+                       '<th class="clickable-header" data-key="FAMA">FAMA</th>';
         }
     }
     headers += '</tr>';
@@ -161,24 +139,45 @@ function renderTargetRows() {
     if (nextChunk.length === 0) return;
 
     let rowsHtml = '';
-    const isRankCol = currentSortColumn === 'rank';
+    
+    // Pegamos a lista de chaves textuais que devem ser exibidas nesta aba
+    const keysToRender = [];
+    $('#table-head th.clickable-header').each(function() {
+        const key = $(this).attr('data-key');
+        if (key !== 'rank') keysToRender.push(key);
+    });
 
     for (let i = 0; i < nextChunk.length; i++) {
-        const globalRank = isAscending && !isRankCol
+        const globalRank = isAscending && currentSortKey !== 'rank'
             ? allData.length - (displayedCount + i)
             : displayedCount + i + 1;
 
         rowsHtml += `<tr><td style="color: #f59e0b; font-weight: bold; text-align: center;">#${globalRank}</td>`;
         
-        const rowData = nextChunk[i];
-        for (let j = 0; j < rowData.length; j++) {
-            let val = rowData[j];
+        const itemData = nextChunk[i];
+
+        // Mapeamento Inteligente: Busca no objeto do JSON pela palavra correta mapeada na Th
+        for (let k = 0; k < keysToRender.length; k++) {
+            const currentKey = keysToRender[k];
+            let val = itemData[currentKey]; // EX: itemData["ABATES"] ou itemData["GUILDA"]
+
+            // Se o teu JSON veio mapeado com índices (Array), fazemos o fallback automático de segurança:
+            if (val === undefined && Array.isArray(itemData)) {
+                val = itemData[k]; 
+            }
+
             if (val === null || val === undefined) {
                 rowsHtml += '<td>-</td>';
             } else if (typeof val === 'number' && val > 999) {
                 rowsHtml += `<td>${val.toLocaleString('pt-BR')}</td>`;
             } else {
-                rowsHtml += `<td>${val}</td>`;
+                // Se for um número stringificado com pontos do Pandas, limpa e formata como número real
+                let cleanStr = String(val).replace(/\./g, '').trim();
+                if (!isNaN(cleanStr) && cleanStr !== '' && currentKey !== 'BATTLE ID') {
+                    rowsHtml += `<td>${Number(cleanStr).toLocaleString('pt-BR')}</td>`;
+                } else {
+                    rowsHtml += `<td>${val}</td>`;
+                }
             }
         }
         rowsHtml += '</tr>';
@@ -188,14 +187,14 @@ function renderTargetRows() {
     displayedCount += nextChunk.length;
 }
 
-function sortDataByColumn(colIndex, asc) {
-    if (colIndex === 'rank') {
+function sortDataByKey(key, asc) {
+    if (key === 'rank') {
         allData.reverse();
         return;
     }
     allData.sort((a, b) => {
-        let valA = a[colIndex];
-        let valB = b[colIndex];
+        let valA = a[key];
+        let valB = b[key];
 
         if (valA === null || valA === undefined) valA = asc ? Infinity : -Infinity;
         if (valB === null || valB === undefined) valB = asc ? Infinity : -Infinity;
@@ -210,31 +209,25 @@ function sortDataByColumn(colIndex, asc) {
             return asc ? numA - numB : numB - numA;
         }
 
-        if (typeof valA === 'string' && typeof valB === 'string') {
-            return asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        }
-        return asc ? valA - valB : valB - valA;
+        return asc ? String(valA).localeCompare(String(valB)) : String(valB).localeCompare(String(valA));
     });
 }
 
 function setupHeaderClickEvents() {
     $('.clickable-header').off('click').on('click', function() {
-        const colAttr = $(this).attr('data-col');
-        const isRank = colAttr === 'rank';
-        const colIndex = isRank ? 'rank' : parseInt(colAttr);
+        const key = $(this).attr('data-key');
 
-        if (currentSortColumn === colIndex) {
+        if (currentSortKey === key) {
             isAscending = !isAscending;
         } else {
-            currentSortColumn = colIndex;
-            const text = $(this).text();
-            isAscending = (text === 'ABATES' || text === 'FAMA' || text === 'MORTES') ? false : true;
+            currentSortKey = key;
+            isAscending = (key === 'ABATES' || key === 'FAMA' || key === 'MORTES') ? false : true;
         }
 
         $('.clickable-header').removeClass('sort-asc sort-desc');
         $(this).addClass(isAscending ? 'sort-asc' : 'sort-desc');
 
-        sortDataByColumn(colIndex, isAscending);
+        sortDataByKey(key, isAscending);
         
         displayedCount = 0;
         $('#table-body').empty();
@@ -271,16 +264,11 @@ $(document).ready(() => {
     $('.tab-btn').off('click').on('click', function() {
         if ($(this).hasClass('active')) return;
 
-        const rawMain = $(this).attr('data-main');
-        const rawSub = $(this).attr('data-sub');
-
-        if (!rawMain || !rawSub) return;
-
         $('.tab-btn').removeClass('active');
         $(this).addClass('active');
 
-        mainCategory = rawMain.toLowerCase().trim();
-        subCategory = rawSub.toLowerCase().trim();
+        mainCategory = $(this).attr('data-main').toLowerCase().trim();
+        subCategory = $(this).attr('data-sub').toLowerCase().trim();
         
         loadData();
     });
