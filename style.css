@@ -1,171 +1,29 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    background-color: #0b0f17;
-    color: #cbd5e1;
-    font-family: 'Courier New', Courier, monospace;
-    padding: 20px;
-}
-
-.terminal-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    background-color: #0d111a;
-    border: 1px solid #1e293b;
-    border-radius: 4px;
-    padding: 20px;
-}
-
-.terminal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    border-bottom: 1px solid #1e293b;
-    padding-bottom: 10px;
-}
-
-.terminal-header h1 {
-    font-size: 1.4rem;
-    color: #fff;
-    font-weight: bold;
-}
-
-.top-meta-cards {
-    font-size: 0.85rem;
-    color: #64748b;
-}
-
-.top-meta-cards strong {
-    color: #2dd4bf;
-}
-
-/* Filtros */
-.filter-bar {
-    display: flex;
-    gap: 20px;
-    background: #070a0f;
-    padding: 12px;
-    border-radius: 4px;
-    margin-bottom: 20px;
-    border: 1px solid #1a2333;
-}
-
-.filter-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.filter-group label {
-    font-size: 0.8rem;
-    font-weight: bold;
-    color: #94a3b8;
-}
-
-.filter-group select {
-    background: #111827;
-    color: #fff;
-    border: 1px solid #334155;
-    padding: 6px 10px;
-    font-family: monospace;
+/* Estilo para indicar que o cabeçalho é clicável */
+table th[data-col] {
     cursor: pointer;
-    border-radius: 4px;
-    outline: none;
-}
-
-/* Abas de Botões Planos Alinhados */
-.main-tabs-container {
-    display: flex;
-    width: 100%;
-    border-bottom: 2px solid #1e293b;
-    background-color: #070a0f;
-    margin-bottom: 20px;
-}
-
-.tab-btn {
-    background: transparent;
-    color: #475569;
-    border: none;
-    padding: 12px 22px;
-    font-family: monospace;
-    font-weight: bold;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.1s ease;
-    border-bottom: 3px solid transparent;
-}
-
-.tab-btn:hover {
-    color: #94a3b8;
-}
-
-.tab-btn.active {
-    color: #f59e0b !important;
-    border-bottom: 3px solid #f59e0b !important;
-    background: #0d111a;
-}
-
-/* Caixa de Rolagem Infinita Otimizada */
-.table-responsive {
-    background: #0d111a;
-    width: 100%;
-}
-
-.scroll-container {
-    max-height: 500px; /* Altura limite do scroll vertical */
-    overflow-y: auto;
-    overflow-x: auto;
-    border: 1px solid #1e293b;
-    background: #0d111a;
+    user-select: none;
     position: relative;
+    padding-right: 25px !important; /* Espaço para a setinha */
+    transition: color 0.1s ease;
 }
 
-/* Fixa o cabeçalho no topo enquanto o conteúdo rola por baixo */
-table th {
-    position: sticky;
-    top: 0;
-    background-color: #070a0f !important;
-    color: #94a3b8 !important;
-    z-index: 10;
-    padding: 12px 15px !important;
-    font-family: monospace;
-    font-size: 0.85rem;
-    text-align: left;
-    border-bottom: 2px solid #1e293b;
+table th[data-col]:hover {
+    color: #f59e0b !important;
 }
 
-table {
-    width: 100%;
-    border-collapse: collapse;
+/* Setas Indicadoras de Direção */
+table th[data-col].sort-asc::after {
+    content: " ▲";
+    color: #f59e0b;
+    font-size: 0.7rem;
+    position: absolute;
+    right: 8px;
 }
 
-table td {
-    padding: 10px 15px;
-    border-bottom: 1px solid #111827;
-    font-size: 0.9rem;
-    white-space: nowrap;
-}
-
-table tbody tr {
-    background-color: #0d111a;
-}
-
-table tbody tr:hover {
-    background-color: #161f30;
-}
-
-/* Alerta de Carregamento no Rodapé do Scroll */
-.scroll-loader {
-    text-align: center;
-    padding: 15px;
-    font-family: monospace;
-    color: #2dd4bf;
-    background: #070a0f;
-    font-size: 0.8rem;
-    border-top: 1px solid #1e293b;
+table th[data-col].sort-desc::after {
+    content: " ▼";
+    color: #f59e0b;
+    font-size: 0.7rem;
+    position: absolute;
+    right: 8px;
 }
