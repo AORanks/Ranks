@@ -1,8 +1,10 @@
 let allData = [];       // Guarda todo o array bruto em memória
 let displayedCount = 0; // Quantos registros já foram injetados na tela
-let mainCategory = 'guilds';
-let subCategory = 'battles';
 const CHUNK_SIZE = 100; // Tamanho de cada bloco de carregamento
+
+// Estado das Categorias Activas (Padrão inicial)
+let mainCategory = 'guilds'; 
+let subCategory = 'battles'; 
 
 // Controle de Ordenação
 let currentSortColumn = null; 
@@ -12,7 +14,6 @@ async function loadData() {
     const serverElement = $('#select-server');
     const monthElement = $('#select-month');
 
-    // Proteção contra erro de inicialização prematura (Tela Preta)
     if (!serverElement.length || !monthElement.length) return;
 
     const server = (serverElement.val() || 'americas').toLowerCase().trim();
@@ -24,14 +25,15 @@ async function loadData() {
     else if (monthValue.includes("mar")) monthNumber = "3";
     else if (monthValue.includes("apr")) monthNumber = "4";
 
-    const folderName = `${server}${mainCategory}${subCategory}`;
+    // NOVA REGRA DE PASTAS SOLICITADA:
+    // Raiz: guilds ou players | Subpasta: americasguildsbattles, americasguildstotal, etc.
+    const folderPath = `${mainCategory}/${server}${mainCategory}${subCategory}`;
     const fileName = `${mainCategory} (${monthNumber}).json`;
-    const finalPath = `./${folderName}/${fileName}`;
+    const finalPath = `./${folderPath}/${fileName}`;
 
-    console.log(`[AO Ranks] Buscando arquivo: ${finalPath}`);
+    console.log(`[AO Ranks] Efetuando requisição em: ${finalPath}`);
     $('#total-rows').text('...');
     
-    // Reseta estados
     allData = [];
     displayedCount = 0;
     currentSortColumn = null;
@@ -62,28 +64,22 @@ async function loadData() {
         allData = json.d;
         $('#total-rows').text(allData.length.toLocaleString('pt-BR'));
 
-        // 1. Renderiza os cabeçalhos dinamicamente
         const totalColumns = allData[0].length;
         renderHeaders(totalColumns);
 
-        // 2. Define coluna padrão para ordenação inicial (Coluna de ABATES)
+        // Define coluna padrão para ordenação baseada no PvP (ABATES)
         let initialSortIndex = 0; 
-        if (mainCategory === 'guilds' && totalColumns === 6) initialSortIndex = 3; // ABATES
-        if (mainCategory === 'guilds' && totalColumns === 4) initialSortIndex = 1; // ABATES (Sem ID/Time)
-        if (mainCategory === 'players' && totalColumns === 7) initialSortIndex = 4; // ABATES Player
-        if (mainCategory === 'players' && totalColumns === 5) initialSortIndex = 2; // ABATES Player (Sem ID/Time)
+        if (mainCategory === 'guilds' && totalColumns === 6) initialSortIndex = 3; 
+        if (mainCategory === 'guilds' && totalColumns === 4) initialSortIndex = 1; 
+        if (mainCategory === 'players' && totalColumns === 7) initialSortIndex = 4; 
+        if (mainCategory === 'players' && totalColumns === 5) initialSortIndex = 2; 
 
-        // Aplica a primeira ordenação decrescente (Maior número de abates primeiro)
         currentSortColumn = initialSortIndex;
         sortDataByColumn(initialSortIndex, false);
 
-        // Atualiza a seta visual na coluna ativa
         $(`th[data-col="${initialSortIndex}"]`).addClass('sort-desc');
 
-        // Carrega as primeiras 100 linhas na tela
         renderTargetRows();
-
-        // Ativa o listener de detecção do scroll
         setupScrollEvent();
 
     } catch (err) {
@@ -91,15 +87,14 @@ async function loadData() {
         $('#total-rows').text('Erro');
         $('#table-wrapper').html(`
             <div style="color: #f59e0b; font-family: monospace; padding: 20px; border: 1px dashed #334155; line-height: 1.5;">
-                <strong>[STATUS 404]:</strong> O arquivo de dados não foi localizado.<br>
-                <strong>Caminho Solicitado:</strong> ${finalPath}
+                <strong>[STATUS 404]:</strong> Dados não localizados na nova estrutura.<br>
+                <strong>Caminho Esperado:</strong> ${finalPath}
             </div>
         `);
     }
 }
 
 function renderHeaders(totalColumns) {
-    // Vincula o índice do array de dados bruto dentro do atributo data-col de cada <th>
     let headers = '<tr><th class="clickable-header" data-col="rank" style="width: 80px; text-align: center;">RANK</th>';
     
     if (mainCategory === 'guilds') {
@@ -135,8 +130,6 @@ function renderHeaders(totalColumns) {
     }
     headers += '</tr>';
     $('#table-head').html(headers);
-    
-    // Liga o listener de clique nos elementos recém-criados
     setupHeaderClickEvents();
 }
 
@@ -145,7 +138,6 @@ function renderTargetRows() {
     let rowsHtml = '';
 
     for (let i = 0; i < nextChunk.length; i++) {
-        // Se a listagem estiver em ordem ascendente, o rank computado acompanha o inverso da matriz
         const globalRank = isAscending && currentSortColumn !== 'rank'
             ? allData.length - (displayedCount + i)
             : displayedCount + i + 1;
@@ -156,7 +148,6 @@ function renderTargetRows() {
             let val = nextChunk[i][j];
             let cleanVal = (val !== null && val !== undefined) ? val : '-';
             
-            // Aplica pontuação de milhar visual sem quebrar o tipo numérico real na memória
             if (typeof val === 'number' && val > 999) {
                 cleanVal = val.toLocaleString('pt-BR');
             }
@@ -171,24 +162,18 @@ function renderTargetRows() {
 
 function sortDataByColumn(colIndex, asc) {
     if (colIndex === 'rank') {
-        // Se clicou no Rank, apenas inverte a matriz para o estado original
         allData.reverse();
         return;
     }
-
     allData.sort((a, b) => {
         let valA = a[colIndex];
         let valB = b[colIndex];
-
         if (valA === null || valA === undefined) valA = asc ? Infinity : -Infinity;
         if (valB === null || valB === undefined) valB = asc ? Infinity : -Infinity;
 
-        // Se for texto (Nomes de Guildas/Players), usa comparação alfabética local
         if (typeof valA === 'string' && typeof valB === 'string') {
             return asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
         }
-
-        // Se for número (Abates, Mortes, Fama), usa subtração direta de alta performance
         return asc ? valA - valB : valB - valA;
     });
 }
@@ -199,29 +184,23 @@ function setupHeaderClickEvents() {
         const isRank = colAttr === 'rank';
         const colIndex = isRank ? 'rank' : parseInt(colAttr);
 
-        // Se clicou na mesma coluna que já estava ativa, inverte a ordem (Asc <-> Desc)
         if (currentSortColumn === colIndex) {
             isAscending = !isAscending;
         } else {
             currentSortColumn = colIndex;
-            // Colunas de PvP competitivo começam do maior para o menor (Descendente) no 1º clique
             const text = $(this).text();
             isAscending = (text === 'ABATES' || text === 'FAMA' || text === 'MORTES') ? false : true;
         }
 
-        // Altera as setinhas CSS no cabeçalho
         $('.clickable-header').removeClass('sort-asc sort-desc');
         $(this).addClass(isAscending ? 'sort-asc' : 'sort-desc');
 
-        // Ordena a matriz cheia na memória
         sortDataByColumn(colIndex, isAscending);
         
-        // Limpa o visor HTML e joga a barra do scroll de volta para o topo
         displayedCount = 0;
         $('#table-body').empty();
-        $('#scroll-box').scrollTop(0); 
+        $('#scroll-box').scrollTop(0);
 
-        // Cospe as primeiras 100 linhas atualizadas
         renderTargetRows();
     });
 }
@@ -240,18 +219,27 @@ function setupScrollEvent() {
     });
 }
 
+// Controle de cliques nas Abas e Sub-Abas
 $(document).ready(() => {
     $('#select-server, #select-month').on('change', loadData);
 
+    // Clique na Aba Principal (GUILDS / PLAYERS)
     $('.tab-btn').on('click', function() {
         if ($(this).hasClass('active')) return;
-
         $('.tab-btn').removeClass('active');
         $(this).addClass('active');
 
         mainCategory = $(this).attr('data-main');
-        subCategory = $(this).attr('data-sub');
+        loadData();
+    });
 
+    // Clique na Sub-Aba Interna (BATTLES / TOTAL)
+    $('.sub-tab-btn').on('click', function() {
+        if ($(this).hasClass('active')) return;
+        $('.sub-tab-btn').removeClass('active');
+        $(this).addClass('active');
+
+        subCategory = $(this).attr('data-sub');
         loadData();
     });
 

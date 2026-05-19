@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -5,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AO Ranks // Database</title>
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 </head>
 <body>
@@ -39,10 +39,13 @@
         </div>
 
         <div class="main-tabs-container">
-            <button class="tab-btn active" data-main="guilds" data-sub="battles">GUILDS BATTLES</button>
-            <button class="tab-btn" data-main="guilds" data-sub="battlestotal">GUILDS TOTAL</button>
-            <button class="tab-btn" data-main="players" data-sub="battles">PLAYERS BATTLES</button>
-            <button class="tab-btn" data-main="players" data-sub="battlestotal">PLAYERS TOTAL</button>
+            <button class="tab-btn active" data-main="guilds">GUILDS</button>
+            <button class="tab-btn" data-main="players">PLAYERS</button>
+        </div>
+
+        <div class="sub-tabs-container">
+            <button class="sub-tab-btn active" data-sub="battles">BATTLES</button>
+            <button class="sub-tab-btn" data-sub="total">TOTAL</button>
         </div>
 
         <div class="table-responsive" id="table-wrapper"></div>
