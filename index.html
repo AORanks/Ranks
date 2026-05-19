@@ -29,9 +29,25 @@
                     <option value="asia">ASIA</option>
                 </select>
             </div>
+
+            <div class="filter-group">
+                <label for="select-type">CATEGORIA:</label>
+                <select id="select-type">
+                    <option value="guilds">GUILDS</option>
+                    <option value="players">PLAYERS</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="select-mode">TIPO:</label>
+                <select id="select-mode">
+                    <option value="battles">BATTLES</option>
+                    <option value="battlestotal">TOTAL</option>
+                </select>
+            </div>
             
             <div class="filter-group">
-                <label for="select-month">MÊS DE REFERÊNCIA:</label>
+                <label for="select-month">MÊS:</label>
                 <select id="select-month">
                     <option value="january">JANEIRO (1)</option>
                     <option value="february">FEVEREIRO (2)</option>
@@ -39,13 +55,6 @@
                     <option value="april">ABRIL (4)</option>
                 </select>
             </div>
-        </div>
-
-        <div class="main-tabs-container">
-            <button class="tab-btn active" data-main="guilds" data-sub="battles">GUILDS BATTLES</button>
-            <button class="tab-btn" data-main="guilds" data-sub="battlestotal">GUILDS TOTAL</button>
-            <button class="tab-btn" data-main="players" data-sub="battles">PLAYERS BATTLES</button>
-            <button class="tab-btn" data-main="players" data-sub="battlestotal">PLAYERS TOTAL</button>
         </div>
 
         <div class="table-responsive">

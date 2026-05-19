@@ -38,14 +38,15 @@ body {
     color: #2dd4bf;
 }
 
-/* Barra de Filtros */
+/* Barra de Filtros Unificada */
 .filter-bar {
     display: flex;
+    flex-wrap: wrap;
     gap: 20px;
     background: #070a0f;
     padding: 12px;
     border-radius: 4px;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
     border: 1px solid #1a2333;
 }
 
@@ -70,43 +71,14 @@ body {
     font-size: 0.85rem;
     cursor: pointer;
     border-radius: 4px;
+    outline: none;
 }
 
-/* CONTAINER DE BOTÕES UNIFICADOS */
-.main-tabs-container {
-    display: flex;
-    width: 100%;
-    border-bottom: 2px solid #1e293b; /* Borda horizontal contínua de fundo */
-    background-color: #070a0f;
-    margin-bottom: 20px;
+.filter-group select:focus {
+    border-color: #f59e0b;
 }
 
-.tab-btn {
-    background: transparent;
-    color: #475569;
-    border: none;
-    padding: 14px 24px;
-    font-family: monospace;
-    font-weight: bold;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    border-bottom: 3px solid transparent; /* Reserva espaço para o traço */
-}
-
-.tab-btn:hover {
-    color: #94a3b8;
-    background: rgba(255, 255, 255, 0.02);
-}
-
-/* Estilo do botão ativo com traço inferior laranja */
-.tab-btn.active {
-    color: #f59e0b !important;
-    border-bottom: 3px solid #f59e0b !important;
-    background: #0d111a;
-}
-
-/* Customização Forçada do DataTables Dark */
+/* DataTables & Configurações de Linha do Painel */
 .table-responsive {
     background: #0d111a;
     overflow-x: auto;
